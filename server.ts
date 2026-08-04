@@ -131,22 +131,35 @@ app.post('/api/tutor/chat', async (req, res) => {
     contents.push({ role: 'user', parts: [{ text: prompt }] });
   }
 
-  // Try Gemini first
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: contents,
-      config: {
-        systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-        temperature: 0.7,
-      },
-    });
+    let responseText = '';
+    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+    let lastError: any = null;
 
-    return res.json({ text: response.text || 'پاسخی دریافت نشد.' });
-  } catch (err: any) {
-    console.error('Gemini Chat error, trying DeepSeek fallback if configured:', err);
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+          config: {
+            systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+            temperature: 0.7,
+          },
+        });
+        if (response.text) {
+          responseText = response.text;
+          break;
+        }
+      } catch (e: any) {
+        lastError = e;
+        console.warn(`Model ${modelName} failed, trying next fallback...`, e.message);
+      }
+    }
 
-    // If DeepSeek API key is provided, attempt fallback
+    if (responseText) {
+      return res.json({ text: responseText });
+    }
+
+    // Fallback to DeepSeek if configured
     if (process.env.DEEPSEEK_API_KEY) {
       try {
         const dsText = await callDeepSeekChat(TUTOR_SYSTEM_INSTRUCTION, contents, prompt);
@@ -156,8 +169,7 @@ app.post('/api/tutor/chat', async (req, res) => {
       }
     }
 
-    res.status(500).json({ error: 'خطا در ارتباط با معلم هوشمند: ' + (err.message || 'مشکل فنی') });
-  }
+    res.status(500).json({ error: 'خطا در ارتباط با معلم هوشمند: ' + (lastError?.message || 'مشکل فنی') });
 });
 
 // 2. Solve Image Math Problem API
