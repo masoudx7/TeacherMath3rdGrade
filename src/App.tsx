@@ -9,32 +9,47 @@ import { StudentProfileModal } from './components/StudentProfileModal';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
 
-const STORAGE_KEY = 'math_tutor_3rd_profile_v2';
+const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
 
 const DEFAULT_PROFILE: StudentProfile = {
-  name: 'علی کوچولو',
+  name: 'دانش‌آموز کوشا',
   avatar: 'fox',
-  stars: 12,
-  xp: 120,
-  level: 2,
-  streakDays: 3,
-  solvedCount: 8,
-  scannedImagesCount: 1,
-  unlockedBadges: ['first_step', 'star_collector'],
+  stars: 0,
+  xp: 0,
+  level: 1,
+  streakDays: 1, // شروع روز ورود حتماً ۱ روز است
+  solvedCount: 0,
+  scannedImagesCount: 0,
+  unlockedBadges: [],
   chapterMastery: {
-    patterns: 80,
-    place_value: 85,
-    fractions: 65,
-    multiplication_division: 90,
-    perimeter_area: 55,
-    regrouping: 70,
-    statistics: 60,
-    advanced_multiplication: 45,
+    patterns: 20,
+    place_value: 15,
+    fractions: 10,
+    multiplication_division: 10,
+    perimeter_area: 5,
+    regrouping: 5,
+    statistics: 0,
+    advanced_multiplication: 0,
   },
-  history: [
-    { date: '1403/05/10', chapterId: 'patterns', score: 3, total: 3 },
-    { date: '1403/05/11', chapterId: 'multiplication_division', score: 3, total: 3 },
-  ]
+  history: []
+};
+
+// Helper to check badge unlocks based on current stats
+const getUnlockedBadges = (prof: StudentProfile): string[] => {
+  const badgeSet = new Set(prof.unlockedBadges || []);
+  BADGES.forEach(b => {
+    let qualifies = true;
+    if (b.requiredStars !== undefined && prof.stars < b.requiredStars) qualifies = false;
+    if (b.requiredSolved !== undefined && prof.solvedCount < b.requiredSolved) qualifies = false;
+    if (b.requiredScanned !== undefined && prof.scannedImagesCount < b.requiredScanned) qualifies = false;
+    if (b.requiredStreak !== undefined && prof.streakDays < b.requiredStreak) qualifies = false;
+    if (b.requiredLevel !== undefined && prof.level < b.requiredLevel) qualifies = false;
+
+    if (qualifies) {
+      badgeSet.add(b.id);
+    }
+  });
+  return Array.from(badgeSet);
 };
 
 export default function App() {
@@ -46,12 +61,17 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_PROFILE, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        const merged = { ...DEFAULT_PROFILE, ...parsed };
+        merged.unlockedBadges = getUnlockedBadges(merged);
+        return merged;
       }
     } catch (e) {
       console.error(e);
     }
-    return DEFAULT_PROFILE;
+    const initial = { ...DEFAULT_PROFILE };
+    initial.unlockedBadges = getUnlockedBadges(initial);
+    return initial;
   });
 
   // Save profile to localStorage on updates
@@ -70,51 +90,39 @@ export default function App() {
       const newXp = prev.xp + count * 10;
       const newLevel = Math.floor(newXp / 100) + 1;
 
-      // Check badge unlocks
-      const currentBadges = new Set(prev.unlockedBadges);
-      BADGES.forEach(b => {
-        if (b.requiredStars && newStars >= b.requiredStars) currentBadges.add(b.id);
-        if (b.requiredSolved && prev.solvedCount >= b.requiredSolved) currentBadges.add(b.id);
-        if (b.requiredScanned && prev.scannedImagesCount >= b.requiredScanned) currentBadges.add(b.id);
-      });
-
-      return {
+      const updatedState: StudentProfile = {
         ...prev,
         stars: newStars,
         xp: newXp,
         level: newLevel,
-        unlockedBadges: Array.from(currentBadges),
       };
+
+      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      return updatedState;
     });
   };
 
   const handleIncrementSolved = () => {
     setProfile(prev => {
       const newCount = prev.solvedCount + 1;
-      const currentBadges = new Set(prev.unlockedBadges);
-      BADGES.forEach(b => {
-        if (b.requiredSolved && newCount >= b.requiredSolved) currentBadges.add(b.id);
-      });
-      return {
+      const updatedState: StudentProfile = {
         ...prev,
         solvedCount: newCount,
-        unlockedBadges: Array.from(currentBadges),
       };
+      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      return updatedState;
     });
   };
 
   const handleIncrementScanned = () => {
     setProfile(prev => {
       const newScanned = prev.scannedImagesCount + 1;
-      const currentBadges = new Set(prev.unlockedBadges);
-      BADGES.forEach(b => {
-        if (b.requiredScanned && newScanned >= b.requiredScanned) currentBadges.add(b.id);
-      });
-      return {
+      const updatedState: StudentProfile = {
         ...prev,
         scannedImagesCount: newScanned,
-        unlockedBadges: Array.from(currentBadges),
       };
+      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      return updatedState;
     });
   };
 

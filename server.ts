@@ -46,49 +46,116 @@ const TUTOR_SYSTEM_INSTRUCTION = `
    - اگر مسئله اعداد فارسی داشت حتماً با اعداد فارسی و خوانا جواب بده.
 `;
 
+// Helper function for optional DeepSeek API fallback
+async function callDeepSeekChat(systemInstruction: string, messages: any[], userPrompt: string): Promise<string> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY تنظیم نشده است.');
+
+  const formattedMessages: any[] = [{ role: 'system', content: systemInstruction }];
+
+  if (Array.isArray(messages)) {
+    messages.forEach((m) => {
+      if (m && m.parts && m.parts[0]?.text) {
+        formattedMessages.push({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.parts[0].text,
+        });
+      }
+    });
+  }
+
+  // Add final user prompt if not already last message
+  const lastMsg = formattedMessages[formattedMessages.length - 1];
+  if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== userPrompt) {
+    formattedMessages.push({ role: 'user', content: userPrompt });
+  }
+
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: formattedMessages,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`خطای سرویس دیپ‌سیک (${res.status}): ${errorText}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || 'پاسخی از دیپ‌سیک دریافت نشد.';
+}
+
 // Health endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
+  });
 });
 
 // 1. Chat with Math Tutor API
 app.post('/api/tutor/chat', async (req, res) => {
-  try {
-    const { prompt, history } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: 'متن سوال الزامی است.' });
-    }
+  const { prompt, history } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: 'متن سوال الزامی است.' });
+  }
 
-    const chatMessages = [
-      { role: 'user', parts: [{ text: TUTOR_SYSTEM_INSTRUCTION }] },
-      { role: 'model', parts: [{ text: 'سلام! من معلم ریاضی سوم شما هستم. 준비 برای یادگیری ریاضی شاد! چه سوالی داری عزیزم؟ 😊⭐' }] }
-    ];
-
-    if (Array.isArray(history)) {
-      history.forEach((msg: any) => {
-        chatMessages.push({
-          role: msg.sender === 'user' ? 'user' : 'model',
+  const contents: any[] = [];
+  if (Array.isArray(history) && history.length > 0) {
+    let lastRole: string | null = null;
+    history.forEach((msg: any) => {
+      if (!msg || !msg.text) return;
+      const role = msg.sender === 'user' ? 'user' : 'model';
+      if (role !== lastRole) {
+        contents.push({
+          role: role,
           parts: [{ text: msg.text }],
         });
-      });
-    }
-
-    chatMessages.push({
-      role: 'user',
-      parts: [{ text: prompt }],
+        lastRole = role;
+      }
     });
+  }
 
+  // Always ensure valid user message at end
+  if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+    contents[contents.length - 1] = { role: 'user', parts: [{ text: prompt }] };
+  } else {
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+  }
+
+  // Try Gemini first
+  try {
     const response = await ai.models.generateContent({
       model: 'gemini-3.6-flash',
-      contents: chatMessages,
+      contents: contents,
       config: {
+        systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
         temperature: 0.7,
       },
     });
 
-    res.json({ text: response.text || 'پاسخی دریافت نشد.' });
+    return res.json({ text: response.text || 'پاسخی دریافت نشد.' });
   } catch (err: any) {
-    console.error('Chat error:', err);
+    console.error('Gemini Chat error, trying DeepSeek fallback if configured:', err);
+
+    // If DeepSeek API key is provided, attempt fallback
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const dsText = await callDeepSeekChat(TUTOR_SYSTEM_INSTRUCTION, contents, prompt);
+        return res.json({ text: dsText });
+      } catch (dsErr: any) {
+        console.error('DeepSeek Chat error:', dsErr);
+      }
+    }
+
     res.status(500).json({ error: 'خطا در ارتباط با معلم هوشمند: ' + (err.message || 'مشکل فنی') });
   }
 });
@@ -107,27 +174,30 @@ app.post('/api/tutor/solve-image', async (req, res) => {
     const promptText = `
 این تصویر حاوی یک مسئله یا صفحه از کتاب یا برگه تمرین ریاضی پایه سوم ابتدایی است.
 لطفاً:
-1. مسئله یا سوال موجود در عکس را دقیق بخوان و متن آن را بازنویسی کن.
-2. آن را گام به گام با زبان کودکانه، شیرین و بسیار ساده برای یک دانش‌آموز پایه سوم ابتدایی حل و تشریح کن.
-3. پاسخ نهایی را کاملاً واضح و مشخص کن.
-4. در پایان، یک سوال مشابه کودکانه مطرح کن تا دانش‌آموز خودش هم تمرین کند!
+۱. مسئله یا سوال موجود در عکس را دقیق بخوان و متن آن را بازنویسی کن.
+۲. آن را گام به گام با زبان کودکانه، شیرین و بسیار ساده برای یک دانش‌آموز پایه سوم ابتدایی حل و تشریح کن.
+۳. پاسخ نهایی را کاملاً واضح و مشخص کن.
+۴. در پایان، یک سوال مشابه کودکانه مطرح کن تا دانش‌آموز خودش هم تمرین کند!
 
 ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مورد عکس: ${userQuestion}` : ''}
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.6-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: mimeType,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType: mimeType,
+              },
             },
-          },
-          { text: promptText },
-        ],
-      },
+            { text: promptText },
+          ],
+        },
+      ],
       config: {
         systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
         temperature: 0.5,

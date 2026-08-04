@@ -60,12 +60,17 @@ export interface StudentProfile {
   }[];
 }
 
+export type BadgeCategory = 'daily' | 'weekly' | 'monthly';
+
 export interface Badge {
   id: string;
   title: string;
   description: string;
   icon: string;
+  category: BadgeCategory;
   requiredStars?: number;
   requiredSolved?: number;
   requiredScanned?: number;
+  requiredStreak?: number;
+  requiredLevel?: number;
 }

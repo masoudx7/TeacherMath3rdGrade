@@ -36,6 +36,7 @@ interface ProgressDashboardProps {
 }
 
 export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, soundEnabled }) => {
+  const [activeBadgeCategory, setActiveBadgeCategory] = React.useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
   const avatarObj = AVATARS.find(a => a.id === profile.avatar) || AVATARS[0];
 
   // Radar Data for chapter mastery
@@ -66,6 +67,41 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
       playSound('wrong', soundEnabled);
     }
   };
+
+  const getBadgeProgress = (badge: (typeof BADGES)[0]) => {
+    let current = 0;
+    let target = 1;
+    let unit = '';
+
+    if (badge.requiredStars !== undefined) {
+      current = profile.stars;
+      target = badge.requiredStars;
+      unit = 'ستاره';
+    } else if (badge.requiredSolved !== undefined) {
+      current = profile.solvedCount;
+      target = badge.requiredSolved;
+      unit = 'مسئله';
+    } else if (badge.requiredScanned !== undefined) {
+      current = profile.scannedImagesCount;
+      target = badge.requiredScanned;
+      unit = 'عکس';
+    } else if (badge.requiredStreak !== undefined) {
+      current = profile.streakDays;
+      target = badge.requiredStreak;
+      unit = 'روز';
+    } else if (badge.requiredLevel !== undefined) {
+      current = profile.level;
+      target = badge.requiredLevel;
+      unit = 'سطح';
+    }
+
+    const percent = Math.min(100, Math.round((current / target) * 100));
+    return { current, target, unit, percent };
+  };
+
+  const filteredBadges = activeBadgeCategory === 'all' 
+    ? BADGES 
+    : BADGES.filter(b => b.category === activeBadgeCategory);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 dir-rtl">
@@ -159,53 +195,111 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
       </div>
 
       {/* Badges & Achievements Section */}
-      <div className="bg-white border-4 border-[#FAB1A0] rounded-[2rem] p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b-2 border-slate-100 pb-3">
-          <h3 className="font-bold text-[#2D3436] text-xl flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-amber-500" />
-            <span>مدال‌های افتخار و پاداش‌ها</span>
-          </h3>
-          <span className="text-xs font-bold text-[#D35400] bg-[#FFEAA7] border border-[#FDCB6E] px-3 py-1 rounded-full">
-            {profile.unlockedBadges.length} از {BADGES.length} آزاد شده
+      <div className="bg-white border-4 border-[#FAB1A0] rounded-[2rem] p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-slate-100 pb-4">
+          <div>
+            <h3 className="font-bold text-[#2D3436] text-xl flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-amber-500" />
+              <span>مدال‌های افتخار و چالش‌های انگیزشی</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">مدال‌های روزانه، هفتگی و ماهانه را با تمرین مداوم فتح کن!</p>
+          </div>
+          <span className="text-xs font-bold text-[#D35400] bg-[#FFEAA7] border border-[#FDCB6E] px-4 py-1.5 rounded-full shadow-xs shrink-0">
+            {profile.unlockedBadges.length} از {BADGES.length} مدال به دست آمده
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {BADGES.map((badge) => {
+        {/* Category Filter Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {[
+            { id: 'all', label: 'همه مدال‌ها 🎖️' },
+            { id: 'daily', label: '☀️ چالش‌های روزانه' },
+            { id: 'weekly', label: '📅 چالش‌های هفتگی' },
+            { id: 'monthly', label: '👑 چالش‌های ماهانه' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveBadgeCategory(tab.id as any)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeBadgeCategory === tab.id
+                  ? 'bg-[#6C5CE7] text-white shadow-[0_3px_0_0_#4834D4]'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Badges Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBadges.map((badge) => {
             const isUnlocked = profile.unlockedBadges.includes(badge.id);
+            const { current, target, unit, percent } = getBadgeProgress(badge);
+
+            const categoryBadgeText = 
+              badge.category === 'daily' ? '☀️ روزانه' :
+              badge.category === 'weekly' ? '📅 هفتگی' : '👑 ماهانه';
+
+            const categoryBadgeBg = 
+              badge.category === 'daily' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+              badge.category === 'weekly' ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-purple-100 text-purple-800 border-purple-300';
 
             return (
-              <button
+              <div
                 key={badge.id}
                 onClick={() => handleBadgeClick(badge.title, isUnlocked)}
-                className={`p-4 rounded-2xl border-2 text-center transition-all cursor-pointer space-y-2 relative overflow-hidden ${
+                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden ${
                   isUnlocked
-                    ? 'bg-[#FFEAA7]/30 border-[#FDCB6E] hover:scale-105 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
+                    ? 'bg-gradient-to-br from-[#FFF9E5] to-white border-[#FDCB6E] shadow-sm hover:scale-[1.02]'
+                    : 'bg-slate-50/80 border-slate-200 opacity-90 hover:bg-white'
                 }`}
               >
-                <div className="text-4xl transform transition-transform group-hover:scale-110">
-                  {badge.icon}
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs text-[#2D3436]">{badge.title}</h4>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-1">{badge.description}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="text-4xl shrink-0 p-2 bg-white rounded-2xl border border-slate-100 shadow-xs">
+                      {badge.icon}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-[#2D3436]">{badge.title}</h4>
+                      <p className="text-xs text-slate-500 leading-tight mt-1">{badge.description}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${categoryBadgeBg}`}>
+                    {categoryBadgeText}
+                  </span>
                 </div>
 
-                <div className="pt-1">
-                  {isUnlocked ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                      <Unlock className="w-3 h-3" />
-                      کسب شده
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                      <Lock className="w-3 h-3" />
-                      قفل است
-                    </span>
-                  )}
+                {/* Progress Bar & Status */}
+                <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    {isUnlocked ? (
+                      <span className="text-emerald-600 flex items-center gap-1">
+                        <Unlock className="w-3.5 h-3.5 text-emerald-500" />
+                        دریافت شده! 🎉
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        پیشرفت: {current} از {target} {unit}
+                      </span>
+                    )}
+                    <span className="text-slate-600 font-bold">{percent}%</span>
+                  </div>
+
+                  {/* Visual Bar */}
+                  <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        isUnlocked 
+                          ? 'bg-emerald-500' 
+                          : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                      }`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

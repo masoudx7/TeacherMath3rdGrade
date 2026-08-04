@@ -172,46 +172,121 @@ export const AVATARS = [
 ];
 
 export const BADGES: Badge[] = [
+  // ☀️ مدال‌های روزانه (Daily Badges)
   {
-    id: 'first_step',
-    title: 'شروع طلایی 🚀',
-    description: 'اولین مسئله ریاضی را حل کردی!',
+    id: 'daily_first_step',
+    title: 'قدم اول امروز 🚀',
+    description: 'حل حداقل ۱ مسئله تمرینی در امروز',
     icon: '🚀',
+    category: 'daily',
     requiredSolved: 1
   },
   {
-    id: 'star_collector',
-    title: 'کلکسیونر ستاره ⭐',
-    description: '۱۰ ستاره درسی به دست آوردی!',
-    icon: '⭐',
-    requiredStars: 10
+    id: 'daily_star_catcher',
+    title: 'ستاره‌چین روز 🌟',
+    description: 'کسب ۵ ستاره در تمرینات امروز',
+    icon: '🌟',
+    category: 'daily',
+    requiredStars: 5
   },
   {
-    id: 'mul_master',
-    title: 'استاد جدول ضرب ✖️',
-    description: 'فصل ضرب و تقسیم را تمرین کردی!',
-    icon: '✖️',
-    requiredSolved: 5
-  },
-  {
-    id: 'photo_detective',
-    title: 'عکاس ریاضی 📸',
-    description: 'یک مسئله را با دوربین اسکن کردی!',
+    id: 'daily_scanner',
+    title: 'اسکنر تیزبین 📸',
+    description: 'اسکن و حل حداقل ۱ مسئله با دوربین',
     icon: '📸',
+    category: 'daily',
     requiredScanned: 1
   },
   {
-    id: 'fraction_king',
-    title: 'قهرمان کسرها 🍕',
-    description: 'کسرها را مثل آب خوردن یاد گرفتی!',
-    icon: '🍕',
-    requiredSolved: 10
+    id: 'daily_hero',
+    title: 'قهرمان روزانه 🏆',
+    description: 'حل ۳ مسئله ریاضی در فعالیت روزانه',
+    icon: '🏆',
+    category: 'daily',
+    requiredSolved: 3
+  },
+
+  // 📅 مدال‌های هفتگی (Weekly Badges)
+  {
+    id: 'weekly_streak_7',
+    title: 'مبارز ۷ روزه 🔥',
+    description: '۷ روز ورود و تمرین متوالی در هفته',
+    icon: '🔥',
+    category: 'weekly',
+    requiredStreak: 7
   },
   {
-    id: 'super_hero',
-    title: 'ابرقهرمان ریاضی 🏆',
-    description: 'رسیدن به سطح ۵ ریاضی پایه سوم!',
-    icon: '🏆',
+    id: 'weekly_stars_25',
+    title: 'کهکشان ستاره‌ها ✨',
+    description: 'جمع‌آوری ۲۵ ستاره در طول هفته',
+    icon: '✨',
+    category: 'weekly',
     requiredStars: 25
+  },
+  {
+    id: 'weekly_solver_15',
+    title: 'حل‌کننده پرانرژی ⚡',
+    description: 'حل ۱۵ مسئله ریاضی مختلف',
+    icon: '⚡',
+    category: 'weekly',
+    requiredSolved: 15
+  },
+  {
+    id: 'weekly_scanner_5',
+    title: 'کارآگاه تصاویر 🔍',
+    description: 'اسکن و حل ۵ عکس کتاب درسی در هفته',
+    icon: '🔍',
+    category: 'weekly',
+    requiredScanned: 5
+  },
+  {
+    id: 'weekly_level_3',
+    title: 'دانشمند سطح ۳ 🧠',
+    description: 'رسیدن به سطح ۳ دانش‌آموز ممتاز',
+    icon: '🧠',
+    category: 'weekly',
+    requiredLevel: 3
+  },
+
+  // 👑 مدال‌های ماهانه (Monthly Master Badges)
+  {
+    id: 'monthly_streak_30',
+    title: 'افسانه ۳۰ روزه 👑',
+    description: '۳۰ روز فعالیت متوالی و یادگیری بی‌وقفه!',
+    icon: '👑',
+    category: 'monthly',
+    requiredStreak: 30
+  },
+  {
+    id: 'monthly_stars_100',
+    title: 'استاد ستاره‌ها 🎖️',
+    description: 'کسب ۱۰۰ ستاره افتخار در ریاضی سوم',
+    icon: '🎖️',
+    category: 'monthly',
+    requiredStars: 100
+  },
+  {
+    id: 'monthly_solver_50',
+    title: 'نابغه ریاضی سوم 💎',
+    description: 'حل ۵۰ مسئله ریاضی پایه سوم ابتدایی',
+    icon: '💎',
+    category: 'monthly',
+    requiredSolved: 50
+  },
+  {
+    id: 'monthly_scanner_15',
+    title: 'استاد بینایی هوش‌مصنوعی 👁️',
+    description: 'اسکن ۱۵ مسئله از کتاب یا دفتر ریاضی',
+    icon: '👁️',
+    category: 'monthly',
+    requiredScanned: 15
+  },
+  {
+    id: 'monthly_level_5',
+    title: 'مدال طلایی ریاضی‌دان 🎓',
+    description: 'رسیدن به سطح ۵ و تسلط بر فصول ریاضی',
+    icon: '🎓',
+    category: 'monthly',
+    requiredLevel: 5
   }
 ];
