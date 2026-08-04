@@ -1,26 +1,37 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let __dirname = process.cwd();
+try {
+  if (typeof import.meta !== 'undefined' && import.meta.url) {
+    __dirname = path.dirname(fileURLToPath(import.meta.url));
+  }
+} catch {
+  __dirname = process.cwd();
+}
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
 
 const PORT = 3000;
 
-// Initialize Google GenAI
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Helper to get GoogleGenAI client dynamically with key validation
+function getAIClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('GEMINI_API_KEY_MISSING');
+  }
+  return new GoogleGenAI({
+    apiKey: apiKey.trim(),
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 const TUTOR_SYSTEM_INSTRUCTION = `
 تو یک معلم خصوصی بسیار مهربان، باحوصله، دلسوز و کودکانه برای درس ریاضی پایه سوم ابتدایی در ایران هستی.
@@ -94,10 +105,19 @@ async function callDeepSeekChat(systemInstruction: string, messages: any[], user
 
 // Health endpoint
 app.get('/api/health', (req, res) => {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  const geminiConfigured = Boolean(geminiKey && geminiKey.trim().length > 0);
+  const deepseekConfigured = Boolean(deepseekKey && deepseekKey.trim().length > 0);
+
   res.json({
     status: 'ok',
     time: new Date().toISOString(),
-    deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
+    geminiConfigured,
+    deepseekConfigured,
+    message: geminiConfigured
+      ? 'GEMINI_API_KEY بر روی سرور دریافت شده است.'
+      : 'کلید GEMINI_API_KEY یافت نشد. لطفاً در پنل Vercel در بخش Environment Variables کلید را اضافه کرده و پروژه را دوباره Redeploy کنید.',
   });
 });
 
@@ -131,13 +151,15 @@ app.post('/api/tutor/chat', async (req, res) => {
     contents.push({ role: 'user', parts: [{ text: prompt }] });
   }
 
-    let responseText = '';
-    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
-    let lastError: any = null;
+  let responseText = '';
+  const modelsToTry = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+  let lastError: any = null;
 
+  try {
+    const client = getAIClient();
     for (const modelName of modelsToTry) {
       try {
-        const response = await ai.models.generateContent({
+        const response = await client.models.generateContent({
           model: modelName,
           contents: contents,
           config: {
@@ -151,25 +173,34 @@ app.post('/api/tutor/chat', async (req, res) => {
         }
       } catch (e: any) {
         lastError = e;
-        console.warn(`Model ${modelName} failed, trying next fallback...`, e.message);
+        console.warn(`Model ${modelName} failed:`, e.message);
       }
     }
+  } catch (err: any) {
+    lastError = err;
+  }
 
-    if (responseText) {
-      return res.json({ text: responseText });
+  if (responseText) {
+    return res.json({ text: responseText });
+  }
+
+  // Fallback to DeepSeek if configured
+  if (process.env.DEEPSEEK_API_KEY) {
+    try {
+      const dsText = await callDeepSeekChat(TUTOR_SYSTEM_INSTRUCTION, contents, prompt);
+      return res.json({ text: dsText });
+    } catch (dsErr: any) {
+      console.error('DeepSeek Chat error:', dsErr);
     }
+  }
 
-    // Fallback to DeepSeek if configured
-    if (process.env.DEEPSEEK_API_KEY) {
-      try {
-        const dsText = await callDeepSeekChat(TUTOR_SYSTEM_INSTRUCTION, contents, prompt);
-        return res.json({ text: dsText });
-      } catch (dsErr: any) {
-        console.error('DeepSeek Chat error:', dsErr);
-      }
-    }
+  if (lastError?.message === 'GEMINI_API_KEY_MISSING') {
+    return res.status(500).json({
+      error: 'کلید API تنظیم نشده است. لطفاً در تنظیمات Vercel گزینه Environment Variables متغیر GEMINI_API_KEY را اضافه کنید و پروژه را دوباره Redeploy نمایید.',
+    });
+  }
 
-    res.status(500).json({ error: 'خطا در ارتباط با معلم هوشمند: ' + (lastError?.message || 'مشکل فنی') });
+  res.status(500).json({ error: 'خطا در ارتباط با معلم هوشمند: ' + (lastError?.message || 'مشکل فنی در پاسخ‌دهی هوش مصنوعی') });
 });
 
 // 2. Solve Image Math Problem API
@@ -180,7 +211,7 @@ app.post('/api/tutor/solve-image', async (req, res) => {
       return res.status(400).json({ error: 'تصویر ارسال نشده است.' });
     }
 
-    // Clean base64 string if data URL prefix exists
+    const client = getAIClient();
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
     const promptText = `
@@ -194,7 +225,7 @@ app.post('/api/tutor/solve-image', async (req, res) => {
 ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مورد عکس: ${userQuestion}` : ''}
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-3.6-flash',
       contents: [
         {
@@ -219,6 +250,11 @@ ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مور�
     res.json({ explanation: response.text || 'تصویر قابل تحلیل نبود.' });
   } catch (err: any) {
     console.error('Image solver error:', err);
+    if (err?.message === 'GEMINI_API_KEY_MISSING') {
+      return res.status(500).json({
+        error: 'کلید API تنظیم نشده است. لطفاً در تنظیمات Vercel گزینه Environment Variables متغیر GEMINI_API_KEY را اضافه کرده و پروژه را Redeploy نمایید.',
+      });
+    }
     res.status(500).json({ error: 'خطا در بررسی عکس مسئله ریاضی: ' + (err.message || 'مشکل فنی') });
   }
 });
@@ -228,10 +264,11 @@ app.post('/api/tutor/generate-quiz', async (req, res) => {
   try {
     const { chapterId, chapterTitle, count = 3 } = req.body;
 
+    const client = getAIClient();
     const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" تولید کن.
     سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران باشند.`;
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-3.6-flash',
       contents: prompt,
       config: {
@@ -263,6 +300,11 @@ app.post('/api/tutor/generate-quiz', async (req, res) => {
     res.json({ questions: quizData });
   } catch (err: any) {
     console.error('Quiz generator error:', err);
+    if (err?.message === 'GEMINI_API_KEY_MISSING') {
+      return res.status(500).json({
+        error: 'کلید API تنظیم نشده است. لطفاً در تنظیمات Vercel گزینه Environment Variables متغیر GEMINI_API_KEY را اضافه کرده و پروژه را Redeploy نمایید.',
+      });
+    }
     res.status(500).json({ error: 'خطا در تولید آزمون هوشمند: ' + (err.message || 'مشکل فنی') });
   }
 });
@@ -270,6 +312,7 @@ app.post('/api/tutor/generate-quiz', async (req, res) => {
 // Vite & Static file handling
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
