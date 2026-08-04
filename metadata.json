@@ -1,0 +1,6 @@
+{
+  "name": "معلم ریاضی سوم ابتدایی",
+  "description": "اپلیکیشن هوشمند معلم خصوصی ریاضی پایه سوم ابتدایی همراه با اسکن تصویر، حل گام به گام، تمرین‌های تعاملی و نمودار پیشرفت دانش‌آموز",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
