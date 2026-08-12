@@ -7,6 +7,7 @@ import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star
 
 interface AIQuizGeneratorProps {
   soundEnabled: boolean;
+  initialChapterId?: ChapterId;
   onAddStars: (count: number) => void;
   onIncrementSolved: () => void;
   onRecordHistory: (chapterId: ChapterId, score: number, total: number) => void;
@@ -14,12 +15,13 @@ interface AIQuizGeneratorProps {
 
 export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
   soundEnabled,
+  initialChapterId = 'patterns',
   onAddStars,
   onIncrementSolved,
   onRecordHistory,
 }) => {
-  const [selectedChapter, setSelectedChapter] = useState<ChapterId>('patterns');
-  const [questions, setQuestions] = useState<QuizQuestion[]>(SAMPLE_QUIZZES['patterns'] || []);
+  const [selectedChapter, setSelectedChapter] = useState<ChapterId>(initialChapterId);
+  const [questions, setQuestions] = useState<QuizQuestion[]>(SAMPLE_QUIZZES[initialChapterId] || SAMPLE_QUIZZES['patterns'] || []);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);

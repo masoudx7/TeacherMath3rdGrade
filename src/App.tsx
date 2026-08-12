@@ -56,6 +56,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('tutor');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
 
   const [profile, setProfile] = useState<StudentProfile>(() => {
     try {
@@ -166,7 +167,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 py-6 px-3 sm:px-6 max-w-7xl mx-auto w-full">
+      <main className="flex-1 py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8 max-w-7xl mx-auto w-full">
         {activeTab === 'tutor' && (
           <AITutorChat
             soundEnabled={soundEnabled}
@@ -186,6 +187,7 @@ export default function App() {
         {activeTab === 'games' && (
           <GamesHub
             soundEnabled={soundEnabled}
+            targetChapterId={selectedChapterForGames}
             onAddStars={handleAddStars}
             onIncrementSolved={handleIncrementSolved}
             onRecordHistory={handleRecordHistory}
@@ -195,7 +197,10 @@ export default function App() {
         {activeTab === 'curriculum' && (
           <CurriculumGuide
             soundEnabled={soundEnabled}
-            onSelectChapterForQuiz={() => setActiveTab('games')}
+            onSelectChapterForQuiz={(chapterId) => {
+              setSelectedChapterForGames(chapterId as ChapterId);
+              setActiveTab('games');
+            }}
           />
         )}
 
@@ -208,7 +213,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t-2 border-slate-200/80 py-4 text-center text-xs text-slate-500 font-bold">
+      <footer className="bg-white border-t-2 border-slate-200/80 py-3.5 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-bold mb-16 sm:mb-0">
         <p>برنامه‌ریزی و طراحی ویژه کتاب ریاضی پایه سوم ابتدایی 📚⭐️ با پشتیبانی هوش مصنوعی Gemini 3.6</p>
       </footer>
 

@@ -1,16 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
-
-let __dirname = process.cwd();
-try {
-  if (typeof import.meta !== 'undefined' && import.meta.url) {
-    __dirname = path.dirname(fileURLToPath(import.meta.url));
-  }
-} catch {
-  __dirname = process.cwd();
-}
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));

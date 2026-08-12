@@ -36,6 +36,8 @@ export const ImageSolver: React.FC<ImageSolverProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -178,20 +180,32 @@ export const ImageSolver: React.FC<ImageSolverProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-4 py-6">
-              <div className="text-6xl mb-2 animate-bounce">📸</div>
+            <div className="space-y-4 py-4 sm:py-6">
+              <div className="text-5xl sm:text-6xl mb-1 animate-bounce">📸</div>
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-[#D63031]">تصویر مسئله را اینجا بگذار یا عکس بگیر</h3>
-                <p className="text-xs text-slate-400">فرمت‌های پشتیبانی شده: JPG, PNG</p>
+                <h3 className="text-base sm:text-lg font-bold text-[#D63031]">تصویر مسئله را اینجا بگذار یا عکس بگیر</h3>
+                <p className="text-xs text-slate-400">از صفحه کتاب یا برگه تمرین عکس بگیر</p>
               </div>
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-[#FF7675] hover:bg-[#d63031] text-white font-bold px-6 py-3.5 rounded-2xl shadow-[0_4px_0_0_#d63031] flex items-center gap-2 mx-auto cursor-pointer transition-all hover:translate-y-0.5 active:shadow-none"
-              >
-                <Upload className="w-5 h-5" />
-                <span>انتخاب عکس مسئله</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-full sm:w-auto bg-[#FF6B6B] hover:bg-[#EE5253] text-white font-bold px-5 py-3 rounded-2xl shadow-[0_3px_0_0_#D63031] flex items-center justify-center gap-2 cursor-pointer transition-all hover:translate-y-0.5 active:shadow-none min-h-[44px]"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>عکاسی با دوربین</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-3 rounded-2xl border-2 border-slate-300 flex items-center justify-center gap-2 cursor-pointer transition-all min-h-[44px]"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span>انتخاب از گالری</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -200,6 +214,15 @@ export const ImageSolver: React.FC<ImageSolverProps> = ({
             ref={fileInputRef}
             onChange={handleFileSelect}
             accept="image/*"
+            className="hidden"
+          />
+
+          <input
+            type="file"
+            ref={cameraInputRef}
+            onChange={handleFileSelect}
+            accept="image/*"
+            capture="environment"
             className="hidden"
           />
         </div>

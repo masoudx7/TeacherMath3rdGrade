@@ -86,48 +86,48 @@ export const MultiplicationGame: React.FC<MultiplicationGameProps> = ({
   };
 
   return (
-    <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 shadow-md max-w-3xl mx-auto space-y-6 dir-rtl">
+    <div className="bg-white border-2 border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-md max-w-3xl mx-auto space-y-4 sm:space-y-6 dir-rtl">
       {/* Game Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-slate-100 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b-2 border-slate-100 pb-3 sm:pb-4">
         <div>
-          <h3 className="font-black text-slate-800 text-xl flex items-center gap-2">
+          <h3 className="font-black text-slate-800 text-base sm:text-xl flex items-center gap-2">
             <span>مسابقه هوشمند جدول ضرب ✖️</span>
           </h3>
-          <p className="text-xs text-slate-500">پایه سوم ابتدایی - تسلط بر ضرب ۱ تا ۱۰</p>
+          <p className="text-[11px] sm:text-xs text-slate-500">پایه سوم ابتدایی - تسلط بر ضرب ۱ تا ۱۰</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-3 py-1.5 rounded-xl text-sm">
-            <Trophy className="w-4 h-4 text-amber-600" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-2.5 py-1 rounded-xl text-xs sm:text-sm">
+            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
             <span>امتیاز: {score}</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-orange-100 text-orange-900 border border-orange-300 font-bold px-3 py-1.5 rounded-xl text-sm">
-            <Flame className="w-4 h-4 text-orange-600 fill-orange-500" />
+          <div className="flex items-center gap-1 bg-orange-100 text-orange-900 border border-orange-300 font-bold px-2.5 py-1 rounded-xl text-xs sm:text-sm">
+            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 fill-orange-500" />
             <span>کومبو: {combo}</span>
           </div>
         </div>
       </div>
 
       {/* Table Selection Tabs */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-600">انتخاب پایه ضرب:</label>
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar">
           <button
             onClick={() => setSelectedTable(0)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer min-h-[36px] ${
               selectedTable === 0
                 ? 'bg-amber-400 text-slate-900 border-2 border-amber-500 shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            مخلوط (همه ضرب‌ها) 🎲
+            مخلوط (همه) 🎲
           </button>
           {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
             <button
               key={num}
               onClick={() => setSelectedTable(num)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[36px] ${
                 selectedTable === num
                   ? 'bg-purple-600 text-white border-2 border-purple-700 shadow-xs'
                   : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200'
@@ -140,25 +140,25 @@ export const MultiplicationGame: React.FC<MultiplicationGameProps> = ({
       </div>
 
       {/* Main Flashcard Display */}
-      <div className="bg-gradient-to-tr from-purple-500 via-indigo-600 to-sky-500 rounded-3xl p-8 text-white text-center shadow-lg relative overflow-hidden space-y-6">
-        <div className="text-sm font-bold opacity-90">حاصل ضرب زیر کدام است؟</div>
+      <div className="bg-gradient-to-tr from-purple-500 via-indigo-600 to-sky-500 rounded-2xl sm:rounded-3xl p-4 sm:p-8 text-white text-center shadow-lg relative overflow-hidden space-y-4 sm:space-y-6">
+        <div className="text-xs sm:text-sm font-bold opacity-90">حاصل ضرب زیر کدام است؟</div>
 
-        <div className="flex items-center justify-center gap-4 text-5xl sm:text-6xl font-black tracking-wider">
-          <span className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border-2 border-white/30">{numA}</span>
+        <div className="flex items-center justify-center gap-2 sm:gap-4 text-3xl sm:text-6xl font-black tracking-wider">
+          <span className="bg-white/20 backdrop-blur-md px-3 py-1.5 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl border-2 border-white/30">{numA}</span>
           <span className="text-amber-300">×</span>
-          <span className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl border-2 border-white/30">{numB}</span>
+          <span className="bg-white/20 backdrop-blur-md px-3 py-1.5 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl border-2 border-white/30">{numB}</span>
           <span className="text-amber-300">=</span>
           <span className="text-yellow-300 animate-pulse">؟</span>
         </div>
 
         {/* Visual Array representation for 3rd graders */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 max-w-md mx-auto overflow-hidden">
-          <div className="text-xs font-bold mb-2 text-amber-200">نمایش تصویری ({numA} دسته {numB} تایی):</div>
-          <div className="flex flex-wrap justify-center gap-1.5">
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/20 max-w-md mx-auto overflow-hidden">
+          <div className="text-[11px] sm:text-xs font-bold mb-1.5 text-amber-200">نمایش تصویری ({numA} دسته {numB} تایی):</div>
+          <div className="flex flex-wrap justify-center gap-1">
             {Array.from({ length: Math.min(numA, 10) }).map((_, groupIdx) => (
-              <div key={groupIdx} className="bg-white/20 p-1.5 rounded-xl border border-white/30 flex gap-0.5">
+              <div key={groupIdx} className="bg-white/20 p-1 sm:p-1.5 rounded-lg sm:rounded-xl border border-white/30 flex gap-0.5">
                 {Array.from({ length: Math.min(numB, 10) }).map((_, dotIdx) => (
-                  <span key={dotIdx} className="text-xs">⭐</span>
+                  <span key={dotIdx} className="text-[10px] sm:text-xs">⭐</span>
                 ))}
               </div>
             ))}
@@ -167,7 +167,7 @@ export const MultiplicationGame: React.FC<MultiplicationGameProps> = ({
       </div>
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {options.map((opt, idx) => {
           let btnStyle = 'bg-slate-50 hover:bg-amber-100 text-slate-800 border-2 border-slate-200 hover:border-amber-400';
           if (selectedAns === opt) {
@@ -183,7 +183,7 @@ export const MultiplicationGame: React.FC<MultiplicationGameProps> = ({
               key={idx}
               onClick={() => handleSelectAnswer(opt)}
               disabled={feedback !== null}
-              className={`py-4 px-6 rounded-2xl font-black text-2xl transition-all cursor-pointer shadow-xs ${btnStyle}`}
+              className={`py-3 sm:py-4 px-4 sm:px-6 rounded-2xl font-black text-xl sm:text-2xl transition-all cursor-pointer shadow-xs min-h-[52px] ${btnStyle}`}
             >
               {opt}
             </button>
