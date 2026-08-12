@@ -7,8 +7,6 @@ import {
   FileSearch, 
   CheckCircle2, 
   HelpCircle, 
-  Volume2, 
-  VolumeX, 
   RotateCcw, 
   Star, 
   ArrowRight,
@@ -32,7 +30,6 @@ export const ImageSolver: React.FC<ImageSolverProps> = ({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,32 +130,6 @@ ${userNote ? `نکته شما: "${userNote}"` : ''}
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSpeakResult = () => {
-    if (!result) return;
-    if (!('speechSynthesis' in window)) {
-      alert('مرورگر شما از پخش صوتی پشتیبانی نمی‌کند.');
-      return;
-    }
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const cleanedText = result.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
-    
-    const utterance = new SpeechSynthesisUtterance(cleanedText);
-    utterance.lang = 'fa-IR';
-    utterance.rate = 0.9;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    setIsSpeaking(true);
-    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -323,18 +294,6 @@ ${userNote ? `نکته شما: "${userNote}"` : ''}
                 <p className="text-xs text-slate-500">منطبق بر الگوی آموزشی کتاب ریاضی سوم</p>
               </div>
             </div>
-
-            <button
-              onClick={handleSpeakResult}
-              className={`px-4 py-2 rounded-2xl text-sm font-bold flex items-center gap-2 border-2 transition-all cursor-pointer ${
-                isSpeaking 
-                  ? 'bg-rose-500 border-rose-600 text-white animate-pulse'
-                  : 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
-              }`}
-            >
-              {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
-              <span>{isSpeaking ? 'توقف خواندن' : 'پخش صوتی راه‌حل'}</span>
-            </button>
           </div>
 
           <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 text-slate-800 text-sm sm:text-base leading-relaxed whitespace-pre-line dir-rtl font-medium">

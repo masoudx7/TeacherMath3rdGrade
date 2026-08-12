@@ -75,7 +75,7 @@ export const GamesHub: React.FC<GamesHubProps> = ({
     { id: 'statistics', title: 'فصل ۷ (آمار/احتمال)', icon: BarChart3, color: 'from-violet-500 to-purple-600', desc: 'چوب‌خط و چرخنده' },
     { id: 'advanced_multiplication', title: 'فصل ۸ (ضرب بزرگ)', icon: Zap, color: 'from-yellow-400 to-amber-600', desc: 'ضرب ۱۰،۱۰۰ و ۲رقمی' },
     { id: 'clock', title: 'ساعت‌خوانی', icon: Clock, color: 'from-rose-400 to-pink-500', desc: 'عقربه‌های زمان' },
-    { id: 'ai_quiz', title: 'آزمون هوشمند AI', icon: Sparkles, color: 'from-amber-400 to-yellow-500 text-slate-900', desc: 'آزمون با معلم AI' },
+    { id: 'ai_quiz', title: 'آزمون هوشمند', icon: Sparkles, color: 'from-amber-400 to-yellow-500 text-slate-900', desc: 'آزمون با آموزگار' },
   ];
 
   const handleGameSelect = (gameId: ActiveGame) => {

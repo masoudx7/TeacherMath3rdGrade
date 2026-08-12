@@ -42,6 +42,8 @@ export interface QuizQuestion {
 }
 
 export interface StudentProfile {
+  phoneNumber?: string;
+  isLoggedIn?: boolean;
   name: string;
   avatar: string;
   stars: number;
@@ -58,6 +60,25 @@ export interface StudentProfile {
     score: number;
     total: number;
   }[];
+}
+
+export type TimeFrame = 'weekly' | 'monthly' | 'yearly';
+
+export interface LeaderboardUser {
+  id: string;
+  name: string;
+  avatar: string;
+  phoneNumber?: string;
+  stars: number;
+  level: number;
+  solvedCount: number;
+  weeklyStars: number;
+  monthlyStars: number;
+  yearlyStars: number;
+  rank?: number;
+  unlockedBadges: string[];
+  chapterMastery: Record<string, number>;
+  lastActive: string;
 }
 
 export type BadgeCategory = 'daily' | 'weekly' | 'monthly';

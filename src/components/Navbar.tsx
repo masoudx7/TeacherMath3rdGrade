@@ -13,7 +13,10 @@ import {
   VolumeX, 
   Flame, 
   Award,
-  Sparkles
+  Sparkles,
+  Smartphone,
+  ShieldCheck,
+  Trophy
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -21,6 +24,7 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   profile: StudentProfile;
   onOpenProfile: () => void;
+  onOpenPhoneAuth: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (val: boolean) => void;
 }
@@ -30,17 +34,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   profile,
   onOpenProfile,
+  onOpenPhoneAuth,
   soundEnabled,
   setSoundEnabled,
 }) => {
   const selectedAvatar = AVATARS.find(a => a.id === profile.avatar) || AVATARS[0];
 
   const tabs = [
-    { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'AI' },
+    { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
     { id: 'scan', label: 'اسکن مسئله', shortLabel: 'اسکن', icon: Camera, badge: 'عکس' },
     { id: 'games', label: 'بازی‌های ریاضی', shortLabel: 'بازی', icon: Gamepad2, badge: 'تمرین' },
+    { id: 'leaderboard', label: 'جدول برترین‌ها', shortLabel: 'برترین‌ها', icon: Trophy, badge: '🏆' },
     { id: 'curriculum', label: 'فصل‌های کتاب', shortLabel: 'فصل‌ها', icon: BookOpen },
-    { id: 'progress', label: 'کارنامه و پیشرفت', shortLabel: 'کارنامه', icon: BarChart2 },
+    { id: 'progress', label: 'کارنامه من', shortLabel: 'کارنامه', icon: BarChart2 },
   ];
 
   const handleTabClick = (tabId: string) => {
@@ -102,6 +108,33 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-4 h-4 text-purple-500" />
               <span>سطح {profile.level}</span>
             </div>
+
+            {/* Phone Auth Login Button */}
+            <button
+              onClick={() => {
+                playSound('click', soundEnabled);
+                onOpenPhoneAuth();
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-full border-2 text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                profile.isLoggedIn
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                  : 'bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200 animate-pulse'
+              }`}
+              title={profile.isLoggedIn ? `ورود فعال: ${profile.phoneNumber}` : 'ورود با شماره موبایل'}
+            >
+              {profile.isLoggedIn ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="hidden lg:inline text-[11px] dir-ltr">{profile.phoneNumber?.slice(-4)}...</span>
+                  <span className="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black">فعال</span>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span className="text-xs sm:text-xs">ورود با موبایل</span>
+                </>
+              )}
+            </button>
 
             {/* Avatar Button */}
             <button

@@ -7,8 +7,6 @@ import {
   Bot, 
   User, 
   Sparkles, 
-  Volume2, 
-  VolumeX, 
   RefreshCw, 
   Lightbulb, 
   CheckCircle2, 
@@ -25,13 +23,96 @@ interface AITutorChatProps {
   onIncrementSolved: () => void;
 }
 
-const PRESET_QUESTIONS = [
-  'جدول ضرب ۶ را با مثال یاد بده ✖️',
-  'چطور محیط و مساحت مستطیل رو حساب کنم؟ 📐',
-  'کسر سه چهارم یعنی چی؟ 🍕',
-  'تفاوت ریال و تومان چیه؟ 💰',
-  'الگوی ۵، ۱۰، ۱۵ چجوری جلو میره؟ 🔢',
-  'جمع ۴ رقمی با جدول ارزش مکانی چطوری انجام میشه؟ 🧮'
+interface QuestionCategory {
+  id: string;
+  name: string;
+  icon: string;
+  questions: string[];
+}
+
+const QUESTION_CATEGORIES: QuestionCategory[] = [
+  {
+    id: 'all',
+    name: 'همه مباحث',
+    icon: '🌟',
+    questions: [
+      'جدول ضرب ۶ را با مثال یاد بده ✖️',
+      'چطور محیط و مساحت مستطیل رو حساب کنم؟ 📐',
+      'کسر سه چهارم یعنی چی؟ 🍕',
+      'تفاوت ریال و تومان چیه؟ 💰',
+      'الگوی ۵، ۱۰، ۱۵ چجوری جلو میره؟ 🔢',
+      'جمع ۴ رقمی با جدول ارزش مکانی چطوری انجام میشه؟ 🧮',
+      'زاویه راست، تند و باز چه فرقی دارن؟ 📐',
+      'ساعت ۱۷:۳۰ دقیقه یعنی ساعت چند؟ ⏰',
+      'چطور دو کسر با مخرج برابر رو مقایسه کنم؟ ⚖️',
+      'تقسیم ۱۲ بر ۳ رو با شکل نشون بده ➗',
+      'ماشین ورودی و خروجی چطور کار میکنه؟ ⚙️',
+      'نمودار ستونی و جدول داده‌ها چیه؟ 📊',
+      'خواص صفر و یک در ضرب چیه؟ 0️⃣',
+      'چطور ضرب ۴ × ۳۰ رو ذهنی حساب کنم؟ 🧠',
+      'مساحت مربع ۵ سانتی‌متری چقدر میشه؟ ⬛'
+    ]
+  },
+  {
+    id: 'multiplication',
+    name: 'ضرب و تقسیم',
+    icon: '✖️',
+    questions: [
+      'جدول ضرب ۷ و ۸ رو چطور زود حفظ بشم؟ ✖️',
+      'خاصیت جابجایی در ضرب یعنی چی؟ 🔄',
+      'تقسیم ۲۰ بر ۴ یعنی چی؟ ➗',
+      'فرق ضرب و جمع تکراری چیه؟ ➕',
+      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀',
+      'روش ساخت مستطیل برای ضرب چیه؟ 🧱',
+      'معنای عبارت ۵ دسته‌ی ۴ تایی چیه؟ 🖐️',
+      'چطور حاصل ضرب ۷ × ۶ رو با رسم شکل پیدا کنم؟ 🎨'
+    ]
+  },
+  {
+    id: 'fractions_geometry',
+    name: 'کسر و هندسه',
+    icon: '🍕',
+    questions: [
+      'کسر دو سوم بزرگتره یا دو پنجم؟ 🍕',
+      'محیط مثلث متساوی‌الاضلاع با ضلع ۶ چقدره؟ 📐',
+      'تفاوت محیط و مساحت چیه؟ 🖼️',
+      'چطور کسر یک دوم را روی شکل و خط‌کش بکشم؟ 📏',
+      'تفاوت متوازی‌الاضلاع و ذوزنقه چیست؟ 🔷',
+      'زاویه تند یعنی زاویه کمتر از چند درجه؟ 📐',
+      'مساحت مستطیل ۴ در ۸ سانتی‌متر چقدره؟ ⬛',
+      'کسرهای مساوی یعنی چی؟ ⚖️'
+    ]
+  },
+  {
+    id: 'money_numbers',
+    name: 'پول و اعداد ۴ رقمی',
+    icon: '💰',
+    questions: [
+      'تفاوت ریال و تومان چیه؟ 💰',
+      'عدد ۵۴۳۲ چند تا هزارتایی و صدتایی داره؟ 🔢',
+      'چطور با اسکناس‌های ۱۰۰۰ و ۵۰۰۰ تومانی خرید کنیم؟ 💵',
+      'جمع ۴ رقمی با تکنیک انتقال و فرآیندی چطوریه؟ 🧮',
+      'تقریب زدن اعداد به نزدیک‌ترین دهتایی و صدتایی 🎯',
+      'حروف‌نویسی عدد ۹۸۰۴ چطوریه؟ ✍️',
+      'بزرگ‌ترین و کوچک‌ترین عدد ۴ رقمی بدون تکرار 🔢',
+      'باقی‌مانده پول از خرید ۲۰,۰۰0 تومانی چطور حساب میشه؟ 👛'
+    ]
+  },
+  {
+    id: 'time_patterns',
+    name: 'ساعت، زمان و الگو',
+    icon: '⏰',
+    questions: [
+      'ساعت ۱۵:۴۵ دقیقه به وقت بعدازظهر چنده؟ ⏰',
+      'نیم ساعت و ربع ساعت چند دقیقه میشه؟ ⏱️',
+      'الگوی ۶، ۱۲، ۱۸، ۲۴ چجوری ادامه پیدا میکنه؟ 📈',
+      'الگوی کاهشی ۵۰، ۴۵، ۴۰ رو ادامه بده 📉',
+      'عقربه ساعت‌شمار و دقیقه‌شمار زاویه باز می‌سازن؟ 📐',
+      'جدول داده‌ها و نمودار دایره‌ای یا ستونی 📊',
+      'احتمال آمدن رو یا پشت در پرتاب سکه 🎲',
+      'شمارش چندتا چندتا روی محور اعداد 📏'
+    ]
+  }
 ];
 
 export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
@@ -45,9 +126,10 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSpeakingId, setIsSpeakingId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedCatId, setSelectedCatId] = useState<string>('all');
+  const [suggestionOffset, setSuggestionOffset] = useState<number>(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,38 +173,29 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     }
   };
 
-  // Text to speech readout
-  const handleSpeak = (msgId: string, textToSpeak: string) => {
-    if (!('speechSynthesis' in window)) {
-      alert('قابلیت خواندن صوتی در این مرورگر فعال نیست.');
-      return;
-    }
-
-    if (isSpeakingId === msgId) {
-      window.speechSynthesis.cancel();
-      setIsSpeakingId(null);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    // Clean text emojis for smoother TTS
-    const cleanedText = textToSpeak.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
-    
-    const utterance = new SpeechSynthesisUtterance(cleanedText);
-    utterance.lang = 'fa-IR';
-    utterance.rate = 0.9; // Slightly slower for kids
-
-    utterance.onend = () => setIsSpeakingId(null);
-    utterance.onerror = () => setIsSpeakingId(null);
-
-    setIsSpeakingId(msgId);
-    window.speechSynthesis.speak(utterance);
-  };
-
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const activeCategory = QUESTION_CATEGORIES.find(c => c.id === selectedCatId) || QUESTION_CATEGORIES[0];
+  
+  const getDisplayedQuestions = () => {
+    const list = activeCategory.questions;
+    const len = list.length;
+    const count = Math.min(5, len);
+    const result: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const idx = (suggestionOffset + i) % len;
+      result.push(list[idx]);
+    }
+    return result;
+  };
+
+  const handleShuffleSuggestions = () => {
+    playSound('pop', soundEnabled);
+    setSuggestionOffset(prev => prev + 3);
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -236,22 +309,59 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
         </div>
       </div>
 
-      {/* Preset Suggested Questions */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
-        <span className="text-xs font-bold text-slate-500 whitespace-nowrap flex items-center gap-1 pr-1 shrink-0">
-          <Lightbulb className="w-4 h-4 text-[#D35400]" />
-          پیشنهادها:
-        </span>
-        {PRESET_QUESTIONS.map((q, idx) => (
+      {/* Category Tabs & Shuffle Control Bar */}
+      <div className="space-y-2 shrink-0 bg-white/90 p-2 sm:p-3 border-2 border-amber-200 rounded-2xl shadow-xs dir-rtl">
+        {/* Category Filter Chips & Shuffle Button */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {QUESTION_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  playSound('click', soundEnabled);
+                  setSelectedCatId(cat.id);
+                  setSuggestionOffset(0);
+                }}
+                className={`text-[10px] sm:text-xs font-black px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 border ${
+                  selectedCatId === cat.id
+                    ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-xs scale-102'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Shuffle Button */}
           <button
-            key={idx}
-            onClick={() => handleSendMessage(q)}
-            disabled={loading}
-            className="text-[11px] sm:text-xs bg-[#FFF3F0] hover:bg-[#FF7675] text-[#D35400] hover:text-white font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-[#FAB1A0] sm:border-2 whitespace-nowrap transition-all shadow-xs cursor-pointer disabled:opacity-50 min-h-[34px]"
+            onClick={handleShuffleSuggestions}
+            className="text-[11px] sm:text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 py-1.5 rounded-xl border-2 border-purple-300 shadow-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95"
+            title="نمایش پیشنهادها و سوالات تازه"
           >
-            {q}
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>تغییر پیشنهادها 🎲</span>
           </button>
-        ))}
+        </div>
+
+        {/* Displayed Suggested Question Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pt-1 border-t border-slate-100">
+          <span className="text-xs font-extrabold text-amber-700 whitespace-nowrap flex items-center gap-1 pr-1 shrink-0">
+            <Lightbulb className="w-4 h-4 text-amber-500 animate-pulse" />
+            <span>سوالات پیشنهادی:</span>
+          </span>
+          {getDisplayedQuestions().map((q, idx) => (
+            <button
+              key={`${selectedCatId}-${suggestionOffset}-${idx}`}
+              onClick={() => handleSendMessage(q)}
+              disabled={loading}
+              className="text-[11px] sm:text-xs bg-amber-50 hover:bg-amber-500 text-amber-900 hover:text-white font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border border-amber-200 hover:border-amber-500 whitespace-nowrap transition-all shadow-2xs cursor-pointer disabled:opacity-50 min-h-[34px] flex items-center gap-1 animate-fade-in"
+            >
+              <span>{q}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Chat Messages Box */}
@@ -297,19 +407,6 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                         title="کپی پاسخ"
                       >
                         {copiedId === msg.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                      </button>
-
-                      {/* Read Aloud */}
-                      <button
-                        onClick={() => handleSpeak(msg.id, msg.text)}
-                        className={`px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer min-h-[32px] ${
-                          isSpeakingId === msg.id
-                            ? 'bg-rose-100 text-rose-700 animate-pulse'
-                            : 'bg-[#FFEAA7] text-[#D35400] hover:bg-[#FDCB6E] border border-[#FDCB6E]'
-                        }`}
-                      >
-                        {isSpeakingId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#D35400]" />}
-                        <span>{isSpeakingId === msg.id ? 'توقف' : 'بخوان'}</span>
                       </button>
                     </div>
                   </div>

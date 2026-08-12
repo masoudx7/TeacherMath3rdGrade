@@ -5,13 +5,20 @@ import { ImageSolver } from './components/ImageSolver';
 import { GamesHub } from './components/InteractiveGames/GamesHub';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { CurriculumGuide } from './components/CurriculumGuide';
+import { Leaderboard } from './components/Leaderboard';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { PhoneAuthModal } from './components/PhoneAuthModal';
+import { InAppReminderBanner } from './components/InAppReminderBanner';
+import { SuccessCelebrationModal, CelebrationData } from './components/SuccessCelebrationModal';
+import { AIDailyTip } from './components/AIDailyTip';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
 
 const DEFAULT_PROFILE: StudentProfile = {
+  phoneNumber: '',
+  isLoggedIn: false,
   name: 'دانش‌آموز کوشا',
   avatar: 'fox',
   stars: 0,
@@ -56,7 +63,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('tutor');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const [isPhoneAuthOpen, setIsPhoneAuthOpen] = useState<boolean>(false);
   const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
+  const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
 
   const [profile, setProfile] = useState<StudentProfile>(() => {
     try {
@@ -75,6 +84,23 @@ export default function App() {
     return initial;
   });
 
+  const handleLoginSuccess = (phoneNumber: string, name?: string) => {
+    setProfile(prev => ({
+      ...prev,
+      phoneNumber,
+      isLoggedIn: true,
+      name: name && name.trim() ? name.trim() : prev.name,
+    }));
+  };
+
+  const handleLogout = () => {
+    setProfile(prev => ({
+      ...prev,
+      phoneNumber: '',
+      isLoggedIn: false,
+    }));
+  };
+
   // Save profile to localStorage on updates
   useEffect(() => {
     try {
@@ -83,6 +109,35 @@ export default function App() {
       console.error(e);
     }
   }, [profile]);
+
+  // Helper to trigger celebration modals
+  const triggerBadgeOrLevelCheck = (prev: StudentProfile, updated: StudentProfile) => {
+    if (updated.level > prev.level) {
+      setTimeout(() => {
+        setCelebrationData({
+          type: 'level_up',
+          title: `تبریک! به سطح ${updated.level} رسیدی! 👑`,
+          subtitle: `آفرین! تلاش و تمرین زیادت باعث شد یک گام بزرگ برداری!`,
+          icon: '🏆',
+          starsEarned: 10,
+        });
+      }, 300);
+    } else if (updated.unlockedBadges.length > prev.unlockedBadges.length) {
+      const newlyUnlockedId = updated.unlockedBadges.find(id => !prev.unlockedBadges.includes(id));
+      const badgeObj = BADGES.find(b => b.id === newlyUnlockedId);
+      if (badgeObj) {
+        setTimeout(() => {
+          setCelebrationData({
+            type: 'badge',
+            title: `مدال جدید «${badgeObj.title}» باز شد! 🎖️`,
+            subtitle: badgeObj.description,
+            icon: badgeObj.icon,
+            starsEarned: 5,
+          });
+        }, 300);
+      }
+    }
+  };
 
   // Handle adding stars & level progression
   const handleAddStars = (count: number) => {
@@ -99,6 +154,7 @@ export default function App() {
       };
 
       updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      triggerBadgeOrLevelCheck(prev, updatedState);
       return updatedState;
     });
   };
@@ -111,6 +167,7 @@ export default function App() {
         solvedCount: newCount,
       };
       updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      triggerBadgeOrLevelCheck(prev, updatedState);
       return updatedState;
     });
   };
@@ -123,6 +180,7 @@ export default function App() {
         scannedImagesCount: newScanned,
       };
       updatedState.unlockedBadges = getUnlockedBadges(updatedState);
+      triggerBadgeOrLevelCheck(prev, updatedState);
       return updatedState;
     });
   };
@@ -162,12 +220,16 @@ export default function App() {
         setActiveTab={setActiveTab}
         profile={profile}
         onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenPhoneAuth={() => setIsPhoneAuthOpen(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8 max-w-7xl mx-auto w-full">
+        {/* Dynamic AI Math Tip of the Day */}
+        <AIDailyTip soundEnabled={soundEnabled} />
+
         {activeTab === 'tutor' && (
           <AITutorChat
             soundEnabled={soundEnabled}
@@ -194,6 +256,13 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'leaderboard' && (
+          <Leaderboard
+            currentProfile={profile}
+            soundEnabled={soundEnabled}
+          />
+        )}
+
         {activeTab === 'curriculum' && (
           <CurriculumGuide
             soundEnabled={soundEnabled}
@@ -214,7 +283,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t-2 border-slate-200/80 py-3.5 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-bold mb-16 sm:mb-0">
-        <p>برنامه‌ریزی و طراحی ویژه کتاب ریاضی پایه سوم ابتدایی 📚⭐️ با پشتیبانی هوش مصنوعی Gemini 3.6</p>
+        <p>برنامه‌ریزی و طراحی ویژه کتاب ریاضی پایه سوم ابتدایی 📚⭐️</p>
       </footer>
 
       {/* Profile Edit Modal */}
@@ -226,6 +295,30 @@ export default function App() {
           soundEnabled={soundEnabled}
         />
       )}
+
+      {/* Phone OTP Login Modal */}
+      <PhoneAuthModal
+        isOpen={isPhoneAuthOpen}
+        onClose={() => setIsPhoneAuthOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        soundEnabled={soundEnabled}
+        currentPhoneNumber={profile.phoneNumber}
+        isLoggedIn={profile.isLoggedIn}
+        onLogout={handleLogout}
+      />
+
+      {/* Friendly In-App Reminder Toast & Time Settings */}
+      <InAppReminderBanner
+        studentName={profile.name}
+        soundEnabled={soundEnabled}
+      />
+
+      {/* Encouragement Success & Badge Celebration Modal */}
+      <SuccessCelebrationModal
+        data={celebrationData}
+        onClose={() => setCelebrationData(null)}
+        soundEnabled={soundEnabled}
+      />
     </div>
   );
 }

@@ -109,7 +109,7 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
           <h3 className="font-black text-slate-800 text-xl flex items-center gap-2">
             <span>آزمون هوشمند فصلی 📝</span>
             <span className="text-xs bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full font-bold">
-              تولید شده توسط AI
+              تولید شده توسط معلم هوشمند
             </span>
           </h3>
           <p className="text-xs text-slate-500">ارزیابی هوشمند یادگیری فصل‌های مختلف کتاب ریاضی پایه سوم</p>
@@ -121,7 +121,7 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
           className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-2xl border-2 border-amber-500 text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>تولید سوالات جدید با AI</span>
+          <span>تولید سوالات جدید</span>
         </button>
       </div>
 

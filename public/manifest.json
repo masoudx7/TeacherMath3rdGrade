@@ -1,0 +1,26 @@
+{
+  "short_name": "ریاضی سوم",
+  "name": "آموزگار هوشمند من - ریاضی سوم دبستان",
+  "description": "برنامه جامع آموزش، رفع اشکال هوشمند و بازی‌های ریاضی پایه سوم دبستان به همراه آموزگار و جدول قهرمانان",
+  "icons": [
+    {
+      "src": "/icon-192.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#FFF9E5",
+  "theme_color": "#6C5CE7",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "fa"
+}
