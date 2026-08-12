@@ -1,9 +1,21 @@
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
+import { generateFallbackTutorResponse } from './src/utils/tutorFallback.js';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
+
+// CORS middleware for Vercel / cross-domain compatibility
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
 const PORT = 3000;
 
@@ -111,87 +123,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Helper function for smart fallback tutor response
-function generateFallbackTutorResponse(prompt: string): string {
-  const p = prompt.toLowerCase();
-
-  if (p.includes('ضرب') || p.includes('جدول ضرب') || p.includes('✖')) {
-    return `سلام قهرمان ریاضی! 🌟
-خوشحالم که می‌خواهی جدول ضرب را یاد بگیری!
-مفهوم ضرب یعنی «جمع دسته‌های مساوی».
-مثلاً ۳ × ۴ یعنی ۳ دسته ۴ تایی (مثل ۳ بشقاب که تو هر کدوم ۴ تا سیب باشه).
-۴ + ۴ + ۴ = ۱۲ 🍎🍎🍎🍎
-برای یادگیری جدول ضرب، هر روز یک عدد را روی کاغذ بنویس و با بازی تمرین کن!
-حالا بگو ببینم: ۴ دسته ۵ تایی کلاً چند تا میشه؟ 🤔💭`;
-  }
-
-  if (p.includes('محیط') || p.includes('مساحت') || p.includes('مستطیل') || p.includes('مربع')) {
-    return `سلام عزیز دلم! 📐
-تفاوت محیط و مساحت خیلی ساده است:
-۱. **محیط**: یعنی دور تا دور شکل! برای حساب کردنش، اندازه همه ضلع‌های دور شکل را با هم جمع می‌کنیم.
-مثلاً محیط مستطیلی با طول ۵ و عرض ۳ برابر است با: ۵ + ۳ + ۵ + ۳ = ۱۶
-۲. **مساحت**: یعنی سطح داخل شکل! برای مستطیل، کافیه طول را در عرض ضرب کنی: ۵ × ۳ = ۱۵
-
-حالا تو بگو: محیط مربعی که ضلع آن ۴ سانتی‌متر است چقدر میشه؟ ⏹️✨`;
-  }
-
-  if (p.includes('کسر') || p.includes('صورت') || p.includes('مخرج')) {
-    return `سلام قهرمان! 🍕
-کسر یعنی تقسیم کردن یک چیز کامل به قسمت‌های مساوی!
-تصور کن یک پیتزا را به ۴ قسمت مساوی تقسیم کردیم.
-- عدد پایین (مخرج) یعنی کل قسمت‌ها: ۴
-- عدد بالا (صورت) یعنی قسمتی که برداشتیم: مثلاً ۳ قسمت
-پس کسر ۳/۴ یعنی ۳ قسمت از ۴ قسمت پیتزا! 😋
-
-یک سوال: کسر ۲/۵ یعنی چند قسمت از چند قسمت؟ 🍕💭`;
-  }
-
-  if (p.includes('تومان') || p.includes('ریال') || p.includes('پول')) {
-    return `سلام عزیزم! 💰
-تبدیل ریال و تومان خیلی راحته:
-- **تومان** یک صفر کمتر از **ریال** داره!
-برای تبدیل ریال به تومان، کافیه **یک صفر از سمت راست حذف کنی**.
-مثلاً:
-- ۱۰,۰۰۰ ریال = ۱,۰۰۰ تومان 💵
-- ۵۰,۰۰۰ ریال = ۵,۰۰۰ تومان
-
-حالا بگو ببینم: ۲۰,۰۰۰ ریال چند تومان میشه؟ 🪙🌟`;
-  }
-
-  if (p.includes('الگو') || p.includes('الگویابی')) {
-    return `سلام قهرمان ریاضی! 🔢
-الگو یعنی یک نظم و ترتیب مشخص در اعداد!
-مثلاً در الگوی ۵، ۱۰، ۱۵، ۲۰:
-می‌بینیم که در هر مرحله **۵ تا** به عدد قبلی اضافه میشه (+۵).
-پس عدد بعدی میشه: ۲۰ + ۵ = ۲۵!
-
-حالا تو بگو: در الگوی ۳، ۶، ۹، ۱۲ عدد بعدی چنده؟ 🤔✨`;
-  }
-
-  if (p.includes('جمع') || p.includes('تفریق') || p.includes('ارزش مکانی') || p.includes('جدول')) {
-    return `سلام پرانرژی! 🧮
-برای جمع و تفریق اعداد ۴ رقمی (مثل ۱۲۵۰ + ۳۴۲۰):
-۱. اعداد را دقیقاً زیر هم در جدول ارزش مکانی می‌نویسیم (یکی زیر یکی، دهتایی زیر دهتایی، صدتایی زیر صدتایی، هزارتایی زیر هزارتایی).
-۲. همیشه از سمت **یکی‌ها (راست)** شروع به جمع می‌کنیم!
-۳. اگر جمع یک مرتبه ۱۰ یا بیشتر شد، ۱۰ تا از اون مرتبه تبدیل به ۱ واحد مرتبه بعدی میشه (انتقال).
-
-مثال: ۲۰۰۰ + ۳۰۰۰ = ۵۰۰۰
-حالا بگو: ۴۰۰۰ + ۱۵۰۰ چقدر میشه؟ 🌟💬`;
-  }
-
-  return `سلام قهرمان عزیز ریاضی! 🌟🖐️
-سوال عالی و قشنگی پرسیدی: "${prompt}"
-
-در ریاضی پایه سوم، برای حل این موضوع کافیه قدم به قدم پیش بری:
-۱. ابتدا مسئله را دقیق بخوان و عددها را مشخص کن.
-۲. با رسم شکل یا کشیدن محور/جدول مسئله را ساده کن.
-۳. پاسخ را با دقت حساب کن و دوباره چک کن!
-
-اگر دوست داری بیشتر توضیح بدم، مشخص کن کدام قسمت را دوست داری با شکل و مثال پیتزایی یا شکلاتی برات توضیح بدم! 🍕📐✨`;
-}
-
 // 1. Chat with Math Tutor API
-app.post('/api/tutor/chat', async (req, res) => {
+app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
   const { prompt, history } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: 'متن سوال الزامی است.' });
@@ -273,7 +206,7 @@ app.post('/api/tutor/chat', async (req, res) => {
 });
 
 // 2. Solve Image Math Problem API
-app.post('/api/tutor/solve-image', async (req, res) => {
+app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async (req, res) => {
   try {
     const { imageBase64, mimeType = 'image/png', userQuestion = '' } = req.body;
     if (!imageBase64) {
@@ -329,7 +262,7 @@ ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مور�
 });
 
 // 3. Generate Custom Quiz Questions API
-app.post('/api/tutor/generate-quiz', async (req, res) => {
+app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'], async (req, res) => {
   try {
     const { chapterId, chapterTitle, count = 3 } = req.body;
 

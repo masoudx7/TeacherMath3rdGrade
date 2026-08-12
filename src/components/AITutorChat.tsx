@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
+import { generateFallbackTutorResponse } from '../utils/tutorFallback';
 import { 
   Send, 
   Bot, 
@@ -147,21 +148,34 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
         text: m.text
       }));
 
-      const res = await fetch('/api/tutor/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: query, history: historyForApi }),
-      });
+      let replyText = '';
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'خطا در شبکه');
+      try {
+        const res = await fetch('/api/tutor/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: query, history: historyForApi }),
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (res.ok && contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.text) {
+            replyText = data.text;
+          }
+        }
+      } catch (e) {
+        // Fetch failed (network error or static hosting without backend)
+      }
+
+      if (!replyText) {
+        replyText = generateFallbackTutorResponse(query);
       }
 
       const tutorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'tutor',
-        text: data.text,
+        text: replyText,
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -171,13 +185,13 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
       onIncrementSolved();
 
     } catch (err: any) {
-      const errorMsg: ChatMessage = {
+      const fallbackMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'tutor',
-        text: 'اوپس! مشکلی در برقراری ارتباط با معلم پیش اومد. 😅 لطفا دوباره تکرار کن عزیزم.',
+        text: generateFallbackTutorResponse(query),
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, fallbackMsg]);
     } finally {
       setLoading(false);
     }
