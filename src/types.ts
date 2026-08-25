@@ -29,9 +29,12 @@ export interface ChatMessage {
   audioText?: string;
 }
 
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface QuizQuestion {
   id: string;
   chapterId: ChapterId;
+  difficulty?: QuestionDifficulty;
   question: string;
   options: string[];
   correctAnswerIndex: number;
@@ -39,6 +42,38 @@ export interface QuizQuestion {
   hint: string;
   visualType?: 'fraction' | 'grid' | 'clock' | 'blocks' | 'multiplication';
   visualData?: any;
+}
+
+export interface Lesson {
+  id: string;
+  chapterId: ChapterId;
+  title: string;
+  lessonNumber: number;
+  shortSummary: string;
+  visualExplanation: {
+    emoji: string;
+    diagramTitle: string;
+    description: string;
+    formulaOrRule?: string;
+  };
+  commonMistakes: string[];
+  easyQuestions: QuizQuestion[];
+  mediumQuestions: QuizQuestion[];
+  hardQuestions: QuizQuestion[];
+}
+
+export interface MistakeRecord {
+  id: string;
+  chapterId: ChapterId;
+  topic?: string;
+  question: string;
+  wrongAnswer: string;
+  correctAnswer: string;
+  explanation?: string;
+  timestamp: string | number;
+  resolved: boolean;
+  attempts?: number;
+  retryCount?: number;
 }
 
 export interface StudentProfile {
@@ -50,16 +85,31 @@ export interface StudentProfile {
   xp: number;
   level: number;
   streakDays: number;
+  lastActiveDate?: string;
   solvedCount: number;
   scannedImagesCount: number;
   unlockedBadges: string[];
   chapterMastery: Record<ChapterId, number>; // 0 to 100 percentage
+  mistakes?: MistakeRecord[];
   history: {
     date: string;
     chapterId: ChapterId;
     score: number;
     total: number;
   }[];
+}
+
+export interface ParentReportData {
+  studentName: string;
+  totalStars: number;
+  solvedCount: number;
+  streakDays: number;
+  averageMastery: number;
+  strongChapters: { title: string; score: number }[];
+  weakChapters: { title: string; score: number }[];
+  recurringMistakes: MistakeRecord[];
+  teacherRecommendation: string;
+  recommendedHomeGames: string[];
 }
 
 export type TimeFrame = 'weekly' | 'monthly' | 'yearly';
@@ -95,3 +145,4 @@ export interface Badge {
   requiredStreak?: number;
   requiredLevel?: number;
 }
+

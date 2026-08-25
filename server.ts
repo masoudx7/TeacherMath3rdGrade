@@ -6,6 +6,43 @@ import { generateFallbackTutorResponse } from './src/utils/tutorFallback.js';
 const app = express();
 app.use(express.json({ limit: '15mb' }));
 
+// 1. In-memory Rate Limiting Middleware (Sliding Window per IP)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 60; // 60 requests per minute
+
+app.use('/api', (req, res, next) => {
+  // Allow OPTIONS preflight
+  if (req.method === 'OPTIONS') return next();
+
+  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown-ip';
+  const now = Date.now();
+  const record = rateLimitMap.get(clientIp);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+  } else {
+    record.count++;
+    if (record.count > MAX_REQUESTS_PER_WINDOW) {
+      return res.status(429).json({
+        error: 'تعداد درخواست‌های ارسالی شما بیش از حد مجاز است. لطفاً یک دقیقه دیگر تلاش کنید.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
+  }
+  next();
+});
+
+// Periodic cleanup for rate limit map every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // CORS middleware for Vercel / cross-domain compatibility
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,27 +97,31 @@ function getAIClient() {
 }
 
 const TUTOR_SYSTEM_INSTRUCTION = `
-تو یک معلم خصوصی بسیار مهربان، باحوصله، دلسوز و کودکانه برای درس ریاضی پایه سوم ابتدایی در ایران هستی.
-نام تو "استاد دانا" یا "معلم ریاضی سوم" است.
-لحن تو بسیار گرم، تشویق‌کننده، شاد و همراه با استیکرها و ایموجی‌های دوست‌داشتنی برای کودکان 8 تا 9 ساله است.
+تو «آموزگار دانا»، معلم خصوصی مهربان، باحوصله، دلسوز و شاد برای درس ریاضی پایه سوم ابتدایی در ایران هستی.
+مخاطب تو یک کودک ۸ تا ۹ ساله است.
 
-قوانین پاسخگویی تو:
-1. ریاضی پایه سوم ابتدایی ایران شامل 8 فصل اصلی است:
-   - فصل 1: الگوها، الگویابی، شمارش چندتا چندتا، ماشین ورودی خروجی، ساعت و تقویم
-   - فصل 2: عددنویسی، اعداد 4 رقمی (هزارها)، جدول ارزش مکانی، تومان و ریال، گسترده‌نویسی، تقریب
-   - فصل 3: کسرها، صورت و مخرج، مقایسه کسرها، کسر روی محور، کسرهای مساوی
-   - فصل 4: ضرب و تقسیم، مفهوم دسته و عضو، جدول ضرب 1 تا 10، خاصیت جابه‌جایی، تقسیم و دسته‌بندی
-   - فصل 5: محیط و مساحت، محیط مربع و مستطیل، مساحت با مربع واحد
-   - فصل 6: جمع و تفریق تکنیکی اعداد 4 رقمی با انتقال و جدول ارزش مکانی
-   - فصل 7: آمار و احتمال، چوب‌خط، نمودار ستونی، چرخنده شانس
-   - فصل 8: ضرب اعداد بزرگتر (ضرب 10، 100، 1000)، ضرب دو رقم در یک رقم، راهبردهای حل مسئله (رسم شکل، جدول حدس و آزمایش، الگویابی، زیرمسئله)
+اصول بنیادین آموزش تو:
+۱. ادبیات و لحن:
+   - بسیار صمیمی، پرانرژی، کودکانه و سرشار از تحسین و تشویق (مانند: «آفرین قهرمان باهوشم! 🌟», «چه سوال قشنگی پرسیدی! 👏»).
+   - جملات را کوتاه، خوانا و با کلمات فارسی روان و ساده بنویس.
+   - از ایموجی‌های دوست‌داشتنی استفاده کن (⭐️, 🍕, 🎈, 🐱, 🏆, 📐).
 
-2. ساختار پاسخگویی:
-   - همیشه ابتدا به دانش‌آموز آفرین و انرژی مثبت بده (مثل: "سلام قهرمان ریاضی!", "آفرین پسرم/دخترم که این سوال قشنگ رو پرسیدی! 🌟").
-   - مسئله یا موضوع را مرحله به مرحله (گام به گام) با عبارات خیلی ساده، مثال‌های روزمره (مثل پیتزا، شکلات، سیب، پول جیبی) توضیح بده.
-   - از ایموجی‌های جذاب استفاده کن.
-   - در انتهای توضیح، یک سوال کوچک یا تمرین مشابه کوتاه بپرس تا دانش‌آموز یادگیری‌اش را امتحان کند.
-   - اگر مسئله اعداد فارسی داشت حتماً با اعداد فارسی و خوانا جواب بده.
+۲. روش آموزشی سقراطی (هدایت گام‌به‌گام به جای دادن لقمه آماده):
+   - هرگز پاسخ نهایی مسئله را یکجا لو نده!
+   - مسئله را با یک مثال ملموس روزمره (پیتزا، شکلات، تیله، اسکناس) تصویرسازی کن.
+   - مرحله اول را با آرامش توضیح بده و در انتها از کودک یک سوال کوچک بپرس تا مرحله بعد را خودش بگوید.
+
+۳. سرفصل‌های دقیق کتاب ریاضی سوم دبستان:
+   - فصل ۱: الگوها و شمارش چندتاچندتا، الگوی متقارن، ماشین‌های ورودی-خروجی، ساعت بعدازظهر.
+   - فصل ۲: عددهای ۴ رقمی (هزارها)، جدول ارزش مکانی، تومان و ریال، گسترده‌نویسی، تقریب.
+   - فصل ۳: کسرها، مفهوم جزء و کل، مقایسه با شکل و محور، کسرهای مساوی.
+   - فصل ۴: ضرب و تقسیم، دسته‌ها و بسته‌ها، جدول ضرب ۱ تا ۱۰، مفهوم تقسیم و دسته‌بندی مساوی.
+   - فصل ۵: محیط (دور تا دور شکل) و مساحت (سطح پوشانده‌شده با مربع‌های واحد).
+   - فصل ۶: جمع و تفریق تکنیکی ۴ رقمی با جدول ارزش مکانی و انتقال ده‌تایی و صدتایی.
+   - فصل ۷: آمار و احتمال، جدول داده‌ها، چوب‌خط ۵ تایی، نمودار ستونی، چرخنده شانس.
+   - فصل ۸: ضرب در ۱۰، ۱۰۰، ۱۰۰۰، ضرب‌های فرآیندی دو رقم در یک رقم.
+
+۴. نگارش اعداد: تمامی اعداد را به صورت فارسی (۱، ۲، ۳...) بنویس.
 `;
 
 // Helper function for optional DeepSeek API fallback
@@ -129,7 +170,7 @@ async function callDeepSeekChat(systemInstruction: string, messages: any[], user
   return data.choices?.[0]?.message?.content || 'پاسخی از دیپ‌سیک دریافت نشد.';
 }
 
-// Health endpoint
+// Health endpoint with diagnostics
 app.get('/api/health', (req, res) => {
   const geminiKey = process.env.GEMINI_API_KEY;
   const deepseekKey = process.env.DEEPSEEK_API_KEY;
@@ -138,16 +179,19 @@ app.get('/api/health', (req, res) => {
 
   res.json({
     status: 'ok',
-    time: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
     geminiConfigured,
     deepseekConfigured,
+    models: PRIMARY_MODELS,
+    cachedDailyTipDate: dailyTipCache?.date || null,
     message: geminiConfigured
-      ? 'GEMINI_API_KEY بر روی سرور دریافت شده است.'
-      : 'کلید GEMINI_API_KEY یافت نشد. لطفاً در پنل Vercel در بخش Environment Variables کلید را اضافه کرده و پروژه را دوباره Redeploy کنید.',
+      ? 'سرویس هوش مصنوعی آموزگار با موفقیت فعال و آماده پاسخگویی است.'
+      : 'کلید GEMINI_API_KEY یافت نشد. سیستم در حالت محلی و فال‌بک کار می‌کند.',
   });
 });
 
-// 1. Chat with Math Tutor API
+// 1. Chat with Math Tutor API (with timeout & retry)
 app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
   const { prompt, history } = req.body;
   if (!prompt) {
@@ -228,7 +272,7 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
   return res.json({ text: fallbackText });
 });
 
-// 2. Solve Image Math Problem API
+// 2. Solve Image Math Problem API (OCR & Step-by-Step)
 app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async (req, res) => {
   try {
     const { imageBase64, mimeType = 'image/png', userQuestion = '' } = req.body;
@@ -241,14 +285,14 @@ app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async
     const client = getAIClient();
 
     const promptText = `
-این تصویر حاوی یک مسئله یا صفحه از کتاب یا برگه تمرین ریاضی پایه سوم ابتدایی است.
-لطفاً:
-۱. مسئله یا سوال موجود در عکس را دقیق بخوان و متن آن را بازنویسی کن.
-۲. آن را گام به گام با زبان کودکانه، شیرین و بسیار ساده برای یک دانش‌آموز پایه سوم ابتدایی حل و تشریح کن.
-۳. پاسخ نهایی را کاملاً واضح و مشخص کن.
-۴. در پایان، یک سوال مشابه کودکانه مطرح کن تا دانش‌آموز خودش هم تمرین کند!
+این عکس حاوی صفحه کتاب، دفتر یا دست‌نویس تمرین ریاضی پایه سوم ابتدایی است.
+وظایف تو:
+۱. متن، اعداد، کسرها یا شکل‌های داخل تصویر را با دقت بخوان و صورت سوال را به زبان فارسی شفاف بازنویسی کن.
+۲. مسئله را به روش گام‌به‌گام کتاب ریاضی سوم دبستان با لحن شاد، کودکانه و مثال ملموس توضیح بده.
+۳. جواب آخر را با کادر یا شکل واضح مشخص کن.
+۴. در پایان، یک سوال خیلی شبیه به همین سوال برای تمرین اختصاصی کودک طرح کن.
 
-${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مورد عکس: ${userQuestion}` : ''}
+${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${userQuestion}` : ''}
     `;
 
     let responseText = '';
@@ -274,7 +318,7 @@ ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مور�
           ],
           config: {
             systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-            temperature: 0.5,
+            temperature: 0.4,
           },
         });
 
@@ -308,11 +352,11 @@ ${userQuestion ? `نکته یا سوال خاص دانش‌آموز در مور�
 // 3. Generate Custom Quiz Questions API
 app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'], async (req, res) => {
   try {
-    const { chapterId, chapterTitle, count = 3 } = req.body;
+    const { chapterId, chapterTitle, difficulty = 'medium', count = 3 } = req.body;
 
     const client = getAIClient();
-    const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" تولید کن.
-    سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران باشند.`;
+    const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
+    سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
 
     let responseText = '';
     let lastError: any = null;
@@ -374,14 +418,24 @@ app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'],
   }
 });
 
-// 4. Generate AI Daily Math Tip API
+// 4. Cached Daily Math Tip Engine (Phase 1 Caching)
+let dailyTipCache: { date: string; tip: string } | null = null;
+
 app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, res) => {
+  const forceRefresh = req.query.refresh === 'true';
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
+  // Return cached tip if available and not forced
+  if (!forceRefresh && dailyTipCache && dailyTipCache.date === todayDateStr && dailyTipCache.tip) {
+    return res.json({ tip: dailyTipCache.tip, cached: true, date: todayDateStr });
+  }
+
   try {
     const client = getAIClient();
     const promptText = `
 یک نکته، ترفند، راز یادگیری یا مسئله کوتاه و بسیاااار شاد و انگیزشی ریاضی برای یک دانش‌آموز پایه سوم ابتدایی در ایران بنویس.
 نکته می‌تواند درباره یکی از موضوعات زیر باشد:
-- ترفند ضرب یا تقسیم سریع
+- ترفند ضرب یا تقسیم سریع (مثل ضرب ۵ یا ۱۰)
 - راز کسرها یا پیتزای ریاضی
 - ترفند محیط و مساحت
 - خوندن ساعت و زمان بعدازظهر
@@ -389,7 +443,7 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
 - الگوهای عددی شگفت‌انگیز
 - جمع و تفریق تکنیکی اعداد ۴ رقمی
 
-پاسخ باید حداکثر ۲ تا ۳ جمله کوتاه، همراه با ایموجی‌های دوست‌داشتنی و خنده‌رو باشد. فقط خود نکته را ریپلا کن بدون هیچ مقدمه یا موخره‌ای.
+پاسخ باید حداکثر ۲ تا ۳ جمله کوتاه، همراه با ایموجی‌های دوست‌داشتنی و خنده‌رو باشد. فقط خود نکته را بازگردان بدون هیچ مقدمه اضافی.
     `;
 
     let responseText = '';
@@ -414,7 +468,8 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
     }
 
     if (responseText) {
-      return res.json({ tip: responseText });
+      dailyTipCache = { date: todayDateStr, tip: responseText };
+      return res.json({ tip: responseText, cached: false, date: todayDateStr });
     }
 
     const fallbacks = [
@@ -428,7 +483,8 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
       '🔷 خواص مربع و مستطیل: هر دو ۴ تا ضلع و ۴ تا زاویه راست دارن، اما مربع همه ضلع‌هاش باهم برابره! 📐'
     ];
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    return res.json({ tip: randomTip });
+    dailyTipCache = { date: todayDateStr, tip: randomTip };
+    return res.json({ tip: randomTip, cached: false, fallback: true, date: todayDateStr });
 
   } catch (err: any) {
     const fallbacks = [
@@ -439,9 +495,41 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
       '⏰ ترفند ساعت بعدازظهر: برای خواندن ساعت‌های بعدازظهر، عدد ساعت رو با ۱۲ جمع کن! مثلا ۴ بعدازظهر میشه ساعت ۱۶! ⏱️'
     ];
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    return res.json({ tip: randomTip });
+    return res.json({ tip: randomTip, cached: false, fallback: true, date: todayDateStr });
   }
 });
+
+// Mistake Tracker Store (per user)
+const userMistakesStore = new Map<string, any[]>();
+
+app.get('/api/user/mistakes/:userId', (req, res) => {
+  const { userId } = req.params;
+  const mistakes = userMistakesStore.get(userId) || [];
+  res.json({ mistakes });
+});
+
+app.post('/api/user/mistakes', (req, res) => {
+  const { userId, mistake } = req.body;
+  if (!userId || !mistake) {
+    return res.status(400).json({ error: 'اطلاعات اشتباه ناقص است.' });
+  }
+  const current = userMistakesStore.get(userId) || [];
+  const updated = [mistake, ...current.filter((m: any) => m.id !== mistake.id)].slice(0, 50);
+  userMistakesStore.set(userId, updated);
+  res.json({ success: true, count: updated.length });
+});
+
+app.post('/api/user/mistakes/resolve', (req, res) => {
+  const { userId, mistakeId } = req.body;
+  if (!userId || !mistakeId) {
+    return res.status(400).json({ error: 'شناسه کاربر و اشتباه الزامی است.' });
+  }
+  const current = userMistakesStore.get(userId) || [];
+  const updated = current.map((m: any) => m.id === mistakeId ? { ...m, resolved: true } : m);
+  userMistakesStore.set(userId, updated);
+  res.json({ success: true, resolvedCount: updated.filter(m => m.resolved).length });
+});
+
 
 // Shared Leaderboard Store
 interface LeaderboardEntry {

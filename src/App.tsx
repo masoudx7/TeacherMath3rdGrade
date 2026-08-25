@@ -11,15 +11,18 @@ import { PhoneAuthModal } from './components/PhoneAuthModal';
 import { InAppReminderBanner } from './components/InAppReminderBanner';
 import { SuccessCelebrationModal, CelebrationData } from './components/SuccessCelebrationModal';
 import { AIDailyTip } from './components/AIDailyTip';
+import { MistakeNotebook } from './components/MistakeNotebook';
+import { ParentReport } from './components/ParentReport';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
+const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
 
 const DEFAULT_PROFILE: StudentProfile = {
   phoneNumber: '',
   isLoggedIn: false,
-  name: 'دانش‌آموز کوشا',
+  name: 'دانش‌آموز مهمان',
   avatar: 'fox',
   stars: 0,
   xp: 0,
@@ -29,16 +32,39 @@ const DEFAULT_PROFILE: StudentProfile = {
   scannedImagesCount: 0,
   unlockedBadges: [],
   chapterMastery: {
-    patterns: 20,
-    place_value: 15,
-    fractions: 10,
-    multiplication_division: 10,
-    perimeter_area: 5,
-    regrouping: 5,
+    patterns: 0,
+    place_value: 0,
+    fractions: 0,
+    multiplication_division: 0,
+    perimeter_area: 0,
+    regrouping: 0,
     statistics: 0,
     advanced_multiplication: 0,
   },
   history: []
+};
+
+// Helper to get all saved user accounts from localStorage
+const getSavedAccountsMap = (): Record<string, StudentProfile> => {
+  try {
+    const data = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error('Error reading accounts map:', e);
+    return {};
+  }
+};
+
+// Helper to save a single user profile to localStorage store
+const saveAccountToStore = (userProfile: StudentProfile) => {
+  if (!userProfile.phoneNumber || !userProfile.isLoggedIn) return;
+  try {
+    const map = getSavedAccountsMap();
+    map[userProfile.phoneNumber] = userProfile;
+    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(map));
+  } catch (e) {
+    console.error('Error saving user account:', e);
+  }
 };
 
 // Helper to check badge unlocks based on current stats
@@ -85,26 +111,80 @@ export default function App() {
   });
 
   const handleLoginSuccess = (phoneNumber: string, name?: string) => {
-    setProfile(prev => ({
-      ...prev,
-      phoneNumber,
-      isLoggedIn: true,
-      name: name && name.trim() ? name.trim() : prev.name,
-    }));
+    const accounts = getSavedAccountsMap();
+    const existingAccount = accounts[phoneNumber];
+
+    if (existingAccount) {
+      // Restore previous user profile!
+      const restoredProfile: StudentProfile = {
+        ...existingAccount,
+        phoneNumber,
+        isLoggedIn: true,
+        name: name && name.trim() ? name.trim() : existingAccount.name || 'دانش‌آموز کوشا',
+      };
+      restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+      setProfile(restoredProfile);
+    } else {
+      // Brand new user profile for this phone number
+      const newProfile: StudentProfile = {
+        ...DEFAULT_PROFILE,
+        phoneNumber,
+        isLoggedIn: true,
+        name: name && name.trim() ? name.trim() : 'دانش‌آموز کوشا',
+      };
+      newProfile.unlockedBadges = getUnlockedBadges(newProfile);
+      setProfile(newProfile);
+    }
   };
 
   const handleLogout = () => {
-    setProfile(prev => ({
-      ...prev,
-      phoneNumber: '',
+    // 1. Save progress of current logged-in user before logging out
+    if (profile.phoneNumber && profile.isLoggedIn) {
+      saveAccountToStore(profile);
+    }
+
+    // 2. Reset active profile to guest defaults (0 stars, cleared stats, logged out)
+    const resetProfile: StudentProfile = {
+      ...DEFAULT_PROFILE,
+      name: 'دانش‌آموز مهمان',
       isLoggedIn: false,
-    }));
+      phoneNumber: '',
+    };
+    resetProfile.unlockedBadges = [];
+    setProfile(resetProfile);
+
+    // 3. Clear session storage
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resetProfile));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  // Save profile to localStorage on updates
+  // Save profile to localStorage on updates & sync
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+      if (profile.isLoggedIn && profile.phoneNumber) {
+        saveAccountToStore(profile);
+
+        // Sync to server leaderboard
+        fetch('/api/leaderboard/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: profile.phoneNumber,
+            name: profile.name,
+            avatar: profile.avatar,
+            phoneNumber: profile.phoneNumber,
+            stars: profile.stars,
+            level: profile.level,
+            solvedCount: profile.solvedCount,
+            unlockedBadges: profile.unlockedBadges,
+            chapterMastery: profile.chapterMastery,
+          }),
+        }).catch(err => console.warn('Leaderboard auto-sync failed:', err));
+      }
     } catch (e) {
       console.error(e);
     }
@@ -256,6 +336,14 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'mistakes' && (
+          <MistakeNotebook
+            soundEnabled={soundEnabled}
+            onAddStars={handleAddStars}
+            userId={profile.phoneNumber || 'guest_student'}
+          />
+        )}
+
         {activeTab === 'leaderboard' && (
           <Leaderboard
             currentProfile={profile}
@@ -266,6 +354,7 @@ export default function App() {
         {activeTab === 'curriculum' && (
           <CurriculumGuide
             soundEnabled={soundEnabled}
+            onAddStars={handleAddStars}
             onSelectChapterForQuiz={(chapterId) => {
               setSelectedChapterForGames(chapterId as ChapterId);
               setActiveTab('games');
@@ -275,6 +364,13 @@ export default function App() {
 
         {activeTab === 'progress' && (
           <ProgressDashboard
+            profile={profile}
+            soundEnabled={soundEnabled}
+          />
+        )}
+
+        {activeTab === 'parent_report' && (
+          <ParentReport
             profile={profile}
             soundEnabled={soundEnabled}
           />

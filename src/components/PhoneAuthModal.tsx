@@ -345,18 +345,23 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
 
               {/* Demo OTP Notice Box */}
               {demoCode && (
-                <div className="mb-4 p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 text-xs sm:text-sm font-bold flex items-center justify-between gap-2 shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
-                    <span>کد تایید تست: <strong className="text-base text-amber-700 tracking-wider font-mono" dir="ltr">{demoCode}</strong></span>
+                <div className="mb-4 p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 text-xs sm:text-sm font-bold shadow-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+                      <span>کد تایید صادر شده: <strong className="text-base text-amber-700 tracking-wider font-mono bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300" dir="ltr">{demoCode}</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAutoFillDemoCode}
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
+                    >
+                      جای‌گذاری خودکار
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAutoFillDemoCode}
-                    className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
-                  >
-                    جای‌گذاری خودکار
-                  </button>
+                  <p className="text-[11px] text-amber-800/80 font-normal text-right leading-relaxed border-t border-amber-200/60 pt-1.5">
+                    💡 کد تایید ۴ رقمی به طور آنلاین صادر شده و با زدن دکمه «جای‌گذاری خودکار» به‌صورت سریع پر می‌شود. (کد پشتیبان: <code className="font-mono font-bold">1234</code>)
+                  </p>
                 </div>
               )}
 

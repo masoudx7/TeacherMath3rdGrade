@@ -16,7 +16,9 @@ import {
   Sparkles,
   Smartphone,
   ShieldCheck,
-  Trophy
+  Trophy,
+  BookMarked,
+  Users
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -43,10 +45,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const tabs = [
     { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
     { id: 'scan', label: 'اسکن مسئله', shortLabel: 'اسکن', icon: Camera, badge: 'عکس' },
-    { id: 'games', label: 'بازی‌های ریاضی', shortLabel: 'بازی', icon: Gamepad2, badge: 'تمرین' },
-    { id: 'leaderboard', label: 'جدول برترین‌ها', shortLabel: 'برترین‌ها', icon: Trophy, badge: '🏆' },
+    { id: 'games', label: 'تمرین و آزمون', shortLabel: 'تمرین', icon: Gamepad2 },
+    { id: 'mistakes', label: 'دفترچه اشتباهات', shortLabel: 'اشتباهات', icon: BookMarked, badge: 'رفع اشکال' },
     { id: 'curriculum', label: 'فصل‌های کتاب', shortLabel: 'فصل‌ها', icon: BookOpen },
     { id: 'progress', label: 'کارنامه من', shortLabel: 'کارنامه', icon: BarChart2 },
+    { id: 'parent_report', label: 'گزارش اولیا', shortLabel: 'اولیا', icon: Users },
+    { id: 'leaderboard', label: 'برترین‌ها', shortLabel: 'برترین‌ها', icon: Trophy, badge: '🏆' },
   ];
 
   const handleTabClick = (tabId: string) => {
