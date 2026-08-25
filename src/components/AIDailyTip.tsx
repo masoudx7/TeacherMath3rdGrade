@@ -25,10 +25,11 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [tipIndex, setTipIndex] = useState<number>(0);
 
-  const fetchNewTip = async () => {
+  const fetchNewTip = async (force = false) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/tutor/daily-tip', { method: 'GET' });
+      const url = force ? '/api/tutor/daily-tip?refresh=true' : '/api/tutor/daily-tip';
+      const res = await fetch(url, { method: 'GET' });
       if (res.ok) {
         const data = await res.json();
         if (data && data.tip) {
@@ -49,12 +50,12 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
   };
 
   useEffect(() => {
-    fetchNewTip();
+    fetchNewTip(false);
   }, []);
 
   const handleRefresh = () => {
     playSound('star', soundEnabled);
-    fetchNewTip();
+    fetchNewTip(true);
   };
 
   const handleCopy = () => {

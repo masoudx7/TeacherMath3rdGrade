@@ -1,7 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
-import { generateFallbackTutorResponse } from './src/utils/tutorFallback.js';
+import { generateFallbackTutorResponse } from './src/utils/tutorFallback';
+import { SAMPLE_QUIZZES } from './src/data/curriculum';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
@@ -56,8 +57,8 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
-// Models to try in order of preference
-const PRIMARY_MODELS = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'];
+// Models to try in order of preference (using official supported models from @google/genai SDK)
+const PRIMARY_MODELS = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 
 // Helper to safely parse and extract clean base64 data and mimeType from Data URLs
 function parseBase64Image(dataUrl: string, defaultMime = 'image/png') {
@@ -351,70 +352,78 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
 
 // 3. Generate Custom Quiz Questions API
 app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'], async (req, res) => {
+  const { chapterId = 'patterns', chapterTitle, difficulty = 'medium', count = 3 } = req.body;
+
   try {
-    const { chapterId, chapterTitle, difficulty = 'medium', count = 3 } = req.body;
-
-    const client = getAIClient();
-    const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
-    سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
-
     let responseText = '';
     let lastError: any = null;
 
-    for (const modelName of PRIMARY_MODELS) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.ARRAY,
-              description: 'فهرستی از سوالات چهارگزینه‌ای ریاضی سوم دبستان',
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING, description: 'متن سوال با اعداد فارسی و واضح' },
-                  options: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: '4 گزینه برای پاسخ',
+    try {
+      const client = getAIClient();
+      const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
+      سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
+
+      for (const modelName of PRIMARY_MODELS) {
+        try {
+          const response = await client.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: Type.ARRAY,
+                description: 'فهرستی از سوالات چهارگزینه‌ای ریاضی سوم دبستان',
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING, description: 'متن سوال با اعداد فارسی و واضح' },
+                    options: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: '4 گزینه برای پاسخ',
+                    },
+                    correctAnswerIndex: { type: Type.INTEGER, description: 'اندیس گزینه صحیح از 0 تا 3' },
+                    explanation: { type: Type.STRING, description: 'توضیح کامل و گام به گام پاسخ' },
+                    hint: { type: Type.STRING, description: 'یک راهنمایی کوچک و دوستانه' },
                   },
-                  correctAnswerIndex: { type: Type.INTEGER, description: 'اندیس گزینه صحیح از 0 تا 3' },
-                  explanation: { type: Type.STRING, description: 'توضیح کامل و گام به گام پاسخ' },
-                  hint: { type: Type.STRING, description: 'یک راهنمایی کوچک و دوستانه' },
+                  required: ['question', 'options', 'correctAnswerIndex', 'explanation', 'hint'],
                 },
-                required: ['question', 'options', 'correctAnswerIndex', 'explanation', 'hint'],
               },
             },
-          },
-        });
+          });
 
-        if (response.text) {
-          responseText = response.text;
-          break;
+          if (response.text) {
+            responseText = response.text;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
         }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Quiz generator model ${modelName} failed:`, err.message);
+      }
+    } catch (clientErr: any) {
+      lastError = clientErr;
+    }
+
+    if (responseText) {
+      try {
+        const quizData = JSON.parse(responseText);
+        if (Array.isArray(quizData) && quizData.length > 0) {
+          return res.json({ questions: quizData });
+        }
+      } catch (parseErr) {
+        console.warn('Quiz JSON parse failed, falling back to curriculum bank');
       }
     }
 
-    if (!responseText) {
-      throw lastError || new Error('خطا در تولید آزمون هوشمند');
-    }
+    // High quality curricular fallback if AI models are busy or rate-limited
+    const fallbackList = SAMPLE_QUIZZES[chapterId] || SAMPLE_QUIZZES['patterns'] || [];
+    const questions = [...fallbackList].sort(() => 0.5 - Math.random()).slice(0, count);
+    return res.json({ questions, fallback: true });
 
-    const quizData = JSON.parse(responseText);
-    res.json({ questions: quizData });
   } catch (err: any) {
-    console.error('Quiz generator error:', err);
-    if (err?.message === 'GEMINI_API_KEY_MISSING') {
-      return res.status(500).json({
-        error: 'کلید API تنظیم نشده است. لطفاً در تنظیمات Vercel گزینه Environment Variables متغیر GEMINI_API_KEY را اضافه کرده و پروژه را Redeploy نمایید.',
-      });
-    }
-    res.status(500).json({ error: 'خطا در تولید آزمون هوشمند: ' + (err.message || 'مشکل فنی') });
+    const fallbackList = SAMPLE_QUIZZES[chapterId] || SAMPLE_QUIZZES['patterns'] || [];
+    return res.json({ questions: fallbackList.slice(0, count), fallback: true });
   }
 });
 
@@ -429,6 +438,19 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
   if (!forceRefresh && dailyTipCache && dailyTipCache.date === todayDateStr && dailyTipCache.tip) {
     return res.json({ tip: dailyTipCache.tip, cached: true, date: todayDateStr });
   }
+
+  const fallbacks = [
+    '💡 ترفند ضرب ۱۰: برای ضرب هر عدد در ۱۰، فقط کافیه یک صفر خوشگل جلوش بگذاری! مثلاً ۷ × ۱۰ میشه ۷۰! 🚀',
+    '🍕 راز کسرها: صورت کسر عدد بالای خطه یعنی تعداد تیکه‌هایی که خوردیم، مخرج هم عدد پایینه یعنی کل تیکه‌های پیتزا! 🍕',
+    '📐 راز محیط و مساحت: محیط یعنی دور تا دور شکل مثل ریسه بادکنک، مساحت یعنی سطح داخل شکل مثل فرش اتاق! 🎨',
+    '💰 شورت‌کات تومان و ریال: برای تبدیل ریال به تومان کافیه یک صفر از آخر عدد برداری! مثلا ۵۰۰۰ ریال میشه ۵۰۰ تومان! 👛',
+    '⏰ ترفند ساعت بعدازظهر: برای خواندن ساعت‌های بعدازظهر، عدد ساعت رو با ۱۲ جمع کن! مثلا ۴ بعدازظهر میشه ساعت ۱۶! ⏱️',
+    '✖️ راز ضرب ۵: حاصل ضرب هر عدد در ۵ همیشه با صفر یا پنج تموم میشه! ۵، ۱۰، ۱۵، ۲۰، ۲۵... ریتمش رو حفظ کن! 🎵',
+    '🧮 جمع تکنیکی اعداد ۴ رقمی: همیشه از ستون یکی‌ها شروع کن! اگه جمع از ۹ بیشتر شد، ده تایی رو بفرست واسه همسایه! 🏠',
+    '🔷 خواص مربع و مستطیل: هر دو ۴ تا ضلع و ۴ تا زاویه راست دارن، اما مربع همه ضلع‌هاش باهم برابره! 📐',
+    '⚙️ ماشین ورودی و خروجی: این ماشین مثل یک غول مهربونه! هر عددی بدی رو طبق دستور ضرب یا جمع می‌کنه و خروجی تحویل می‌ده! 🤖',
+    '📊 راز چوب‌خط: تا ۴ تا چوب‌خط رو کنار هم عمودی می‌کشیم، پنجمی رو مورب رویشون می‌کشیم تا شمارش ۵ تا ۵ تا راحت بشه! ✏️'
+  ];
 
   try {
     const client = getAIClient();
@@ -463,7 +485,7 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
           break;
         }
       } catch (err: any) {
-        console.warn(`Daily tip model ${modelName} failed:`, err.message);
+        // Silently continue to fallback model without noisy errors
       }
     }
 
@@ -472,28 +494,11 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
       return res.json({ tip: responseText, cached: false, date: todayDateStr });
     }
 
-    const fallbacks = [
-      '💡 ترفند ضرب ۱۰: برای ضرب هر عدد در ۱۰، فقط کافیه یک صفر خوشگل جلوش بگذاری! مثلاً ۷ × ۱۰ میشه ۷۰! 🚀',
-      '🍕 راز کسرها: صورت کسر عدد بالای خطه یعنی تعداد تیکه‌هایی که خوردیم، مخرج هم عدد پایینه یعنی کل تیکه‌های پیتزا! 🍕',
-      '📐 راز محیط و مساحت: محیط یعنی دور تا دور شکل مثل ریسه بادکنک، مساحت یعنی سطح داخل شکل مثل فرش اتاق! 🎨',
-      '💰 شورت‌کات تومان و ریال: برای تبدیل ریال به تومان کافیه یک صفر از آخر عدد برداری! مثلا ۵۰۰۰ ریال میشه ۵۰۰ تومان! 👛',
-      '⏰ ترفند ساعت بعدازظهر: برای خواندن ساعت‌های بعدازظهر، عدد ساعت رو با ۱۲ جمع کن! مثلا ۴ بعدازظهر میشه ساعت ۱۶! ⏱️',
-      '✖️ راز ضرب ۵: حاصل ضرب هر عدد در ۵ همیشه با صفر یا پنج تموم میشه! ۵، ۱۰، ۱۵، ۲۰، ۲۵... ریتمش رو حفظ کن! 🎵',
-      '🧮 جمع تکنیکی اعداد ۴ رقمی: همیشه از ستون یکی‌ها شروع کن! اگه جمع از ۹ بیشتر شد، ده تایی رو بفرست واسه همسایه! 🏠',
-      '🔷 خواص مربع و مستطیل: هر دو ۴ تا ضلع و ۴ تا زاویه راست دارن، اما مربع همه ضلع‌هاش باهم برابره! 📐'
-    ];
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
     dailyTipCache = { date: todayDateStr, tip: randomTip };
     return res.json({ tip: randomTip, cached: false, fallback: true, date: todayDateStr });
 
   } catch (err: any) {
-    const fallbacks = [
-      '💡 ترفند ضرب ۱۰: برای ضرب هر عدد در ۱۰، فقط کافیه یک صفر خوشگل جلوش بگذاری! مثلاً ۷ × ۱۰ میشه ۷۰! 🚀',
-      '🍕 راز کسرها: صورت کسر عدد بالای خطه یعنی تعداد تیکه‌هایی که خوردیم، مخرج هم عدد پایینه یعنی کل تیکه‌های پیتزا! 🍕',
-      '📐 راز محیط و مساحت: محیط یعنی دور تا دور شکل مثل ریسه بادکنک، مساحت یعنی سطح داخل شکل مثل فرش اتاق! 🎨',
-      '💰 شورت‌کات تومان و ریال: برای تبدیل ریال به تومان کافیه یک صفر از آخر عدد برداری! مثلا ۵۰۰۰ ریال میشه ۵۰۰ تومان! 👛',
-      '⏰ ترفند ساعت بعدازظهر: برای خواندن ساعت‌های بعدازظهر، عدد ساعت رو با ۱۲ جمع کن! مثلا ۴ بعدازظهر میشه ساعت ۱۶! ⏱️'
-    ];
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
     return res.json({ tip: randomTip, cached: false, fallback: true, date: todayDateStr });
   }
