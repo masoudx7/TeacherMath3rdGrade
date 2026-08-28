@@ -306,9 +306,9 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8 max-w-7xl mx-auto w-full">
-        {/* Dynamic AI Math Tip of the Day */}
-        <AIDailyTip soundEnabled={soundEnabled} />
+      <main className={`flex-1 ${activeTab === 'tutor' ? 'py-1 sm:py-3 px-1 sm:px-4 pb-18 sm:pb-4' : 'py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8'} max-w-7xl mx-auto w-full`}>
+        {/* Dynamic AI Math Tip of the Day - Only show on other tabs so chat has maximum vertical space */}
+        {activeTab !== 'tutor' && <AIDailyTip soundEnabled={soundEnabled} />}
 
         {activeTab === 'tutor' && (
           <AITutorChat

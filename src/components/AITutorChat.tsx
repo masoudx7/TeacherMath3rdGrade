@@ -1,20 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
+import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { generateFallbackTutorResponse } from '../utils/tutorFallback';
 import { 
   Send, 
-  Bot, 
   User, 
-  Sparkles, 
   RefreshCw, 
   Lightbulb, 
-  CheckCircle2, 
   Star, 
   Mic, 
   MicOff,
   Copy,
-  Check
+  Check,
+  Volume2,
+  VolumeX,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Smile
 } from 'lucide-react';
 
 interface AITutorChatProps {
@@ -42,14 +47,8 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
       'تفاوت ریال و تومان چیه؟ 💰',
       'الگوی ۵، ۱۰، ۱۵ چجوری جلو میره؟ 🔢',
       'جمع ۴ رقمی با جدول ارزش مکانی چطوری انجام میشه؟ 🧮',
-      'زاویه راست، تند و باز چه فرقی دارن؟ 📐',
       'ساعت ۱۷:۳۰ دقیقه یعنی ساعت چند؟ ⏰',
-      'چطور دو کسر با مخرج برابر رو مقایسه کنم؟ ⚖️',
       'تقسیم ۱۲ بر ۳ رو با شکل نشون بده ➗',
-      'ماشین ورودی و خروجی چطور کار میکنه؟ ⚙️',
-      'نمودار ستونی و جدول داده‌ها چیه؟ 📊',
-      'خواص صفر و یک در ضرب چیه؟ 0️⃣',
-      'چطور ضرب ۴ × ۳۰ رو ذهنی حساب کنم؟ 🧠',
       'مساحت مربع ۵ سانتی‌متری چقدر میشه؟ ⬛'
     ]
   },
@@ -62,10 +61,7 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
       'خاصیت جابجایی در ضرب یعنی چی؟ 🔄',
       'تقسیم ۲۰ بر ۴ یعنی چی؟ ➗',
       'فرق ضرب و جمع تکراری چیه؟ ➕',
-      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀',
-      'روش ساخت مستطیل برای ضرب چیه؟ 🧱',
-      'معنای عبارت ۵ دسته‌ی ۴ تایی چیه؟ 🖐️',
-      'چطور حاصل ضرب ۷ × ۶ رو با رسم شکل پیدا کنم؟ 🎨'
+      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀'
     ]
   },
   {
@@ -76,41 +72,30 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
       'کسر دو سوم بزرگتره یا دو پنجم؟ 🍕',
       'محیط مثلث متساوی‌الاضلاع با ضلع ۶ چقدره؟ 📐',
       'تفاوت محیط و مساحت چیه؟ 🖼️',
-      'چطور کسر یک دوم را روی شکل و خط‌کش بکشم؟ 📏',
-      'تفاوت متوازی‌الاضلاع و ذوزنقه چیست؟ 🔷',
-      'زاویه تند یعنی زاویه کمتر از چند درجه؟ 📐',
-      'مساحت مستطیل ۴ در ۸ سانتی‌متر چقدره؟ ⬛',
+      'زاویه تند و باز چه فرقی دارن؟ 📐',
       'کسرهای مساوی یعنی چی؟ ⚖️'
     ]
   },
   {
     id: 'money_numbers',
-    name: 'پول و اعداد ۴ رقمی',
+    name: 'پول و ۴رقمی',
     icon: '💰',
     questions: [
       'تفاوت ریال و تومان چیه؟ 💰',
       'عدد ۵۴۳۲ چند تا هزارتایی و صدتایی داره؟ 🔢',
-      'چطور با اسکناس‌های ۱۰۰۰ و ۵۰۰۰ تومانی خرید کنیم؟ 💵',
-      'جمع ۴ رقمی با تکنیک انتقال و فرآیندی چطوریه؟ 🧮',
-      'تقریب زدن اعداد به نزدیک‌ترین دهتایی و صدتایی 🎯',
-      'حروف‌نویسی عدد ۹۸۰۴ چطوریه؟ ✍️',
-      'بزرگ‌ترین و کوچک‌ترین عدد ۴ رقمی بدون تکرار 🔢',
-      'باقی‌مانده پول از خرید ۲۰,۰۰0 تومانی چطور حساب میشه؟ 👛'
+      'جمع ۴ رقمی با تکنیک انتقال چطوریه؟ 🧮',
+      'تقریب زدن اعداد به نزدیک‌ترین دهتایی 🎯'
     ]
   },
   {
     id: 'time_patterns',
-    name: 'ساعت، زمان و الگو',
+    name: 'ساعت و الگو',
     icon: '⏰',
     questions: [
       'ساعت ۱۵:۴۵ دقیقه به وقت بعدازظهر چنده؟ ⏰',
       'نیم ساعت و ربع ساعت چند دقیقه میشه؟ ⏱️',
-      'الگوی ۶، ۱۲، ۱۸، ۲۴ چجوری ادامه پیدا میکنه؟ 📈',
-      'الگوی کاهشی ۵۰، ۴۵، ۴۰ رو ادامه بده 📉',
-      'عقربه ساعت‌شمار و دقیقه‌شمار زاویه باز می‌سازن؟ 📐',
-      'جدول داده‌ها و نمودار دایره‌ای یا ستونی 📊',
-      'احتمال آمدن رو یا پشت در پرتاب سکه 🎲',
-      'شمارش چندتا چندتا روی محور اعداد 📏'
+      'الگوی ۶، ۱۲، ۱۸، ۲۴ رو ادامه بده 📈',
+      'شانس آمدن رنگ قرمز در چرخنده 🎡'
     ]
   }
 ];
@@ -120,7 +105,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     {
       id: 'welcome',
       sender: 'tutor',
-      text: 'سلام قهرمان ریاضی پایه سوم! 🖐️🌟 من "استاد دانا" معلم خصوصی تو هستم. هر سوالی از کتاب ریاضی سوم داری یا هر مسئله‌ای رو بلد نیستی ازم بپرس تا قدم به قدم با شکل و مثال‌های بامزه یاد بگیریم! 😊',
+      text: 'سلام قهرمان ریاضی! 🌟🖐️ من «استاد دانا» هستم، معلم صبور و مهربان ریاضی سوم دبستان. هر سوال، تمرین یا مبحثی که برات سخته بپرس تا با شکل و مثال‌های پیتزایی و شکلاتی با هم حلش کنیم! 😊🍕',
       timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -128,16 +113,23 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [suggestionOffset, setSuggestionOffset] = useState<number>(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom('smooth');
   }, [messages, loading]);
 
-  // Speech Recognition Setup
+  // Voice recognition
   const handleVoiceInput = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -176,7 +168,38 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    playSound('pop', soundEnabled);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleSpeakText = (id: string, text: string) => {
+    if (speakingId === id) {
+      stopPersianSpeech();
+      setSpeakingId(null);
+      return;
+    }
+
+    setSpeakingId(id);
+    speakPersianText(
+      text,
+      undefined,
+      () => setSpeakingId(null),
+      () => setSpeakingId(null)
+    );
+  };
+
+  const handleClearChat = () => {
+    playSound('pop', soundEnabled);
+    stopPersianSpeech();
+    setSpeakingId(null);
+    setMessages([
+      {
+        id: Date.now().toString(),
+        sender: 'tutor',
+        text: 'گفتگوی جدید شروع شد! 🌟 هر مسئله یا سوالی از کتاب ریاضی سوم داری، بپرس تا با هم یاد بگیریم.',
+        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
   };
 
   const activeCategory = QUESTION_CATEGORIES.find(c => c.id === selectedCatId) || QUESTION_CATEGORIES[0];
@@ -184,7 +207,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   const getDisplayedQuestions = () => {
     const list = activeCategory.questions;
     const len = list.length;
-    const count = Math.min(5, len);
+    const count = Math.min(4, len);
     const result: string[] = [];
     for (let i = 0; i < count; i++) {
       const idx = (suggestionOffset + i) % len;
@@ -195,7 +218,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
   const handleShuffleSuggestions = () => {
     playSound('pop', soundEnabled);
-    setSuggestionOffset(prev => prev + 3);
+    setSuggestionOffset(prev => prev + 2);
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -204,6 +227,8 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
     playSound('click', soundEnabled);
     setInput('');
+    stopPersianSpeech();
+    setSpeakingId(null);
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -216,7 +241,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     setLoading(true);
 
     try {
-      const historyForApi = messages.map(m => ({
+      const historyForApi = messages.slice(-8).map(m => ({
         sender: m.sender,
         text: m.text
       }));
@@ -238,7 +263,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           }
         }
       } catch (e) {
-        // Fetch failed (network error or static hosting without backend)
+        // Fallback handled below
       }
 
       if (!replyText) {
@@ -271,142 +296,170 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-175px)] sm:h-[calc(100vh-140px)] min-h-[460px] sm:min-h-[580px] max-w-5xl mx-auto space-y-2.5 sm:space-y-4">
-      {/* Top Banner & Mascot Header */}
-      <div className="bg-white rounded-2xl sm:rounded-[2rem] border-2 sm:border-4 border-[#A29BFE] p-3 sm:p-5 shadow-sm flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 sm:gap-3.5">
-          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-2xl sm:text-3xl shadow-xs shrink-0">
+    <div className="flex flex-col h-[calc(100dvh-130px)] sm:h-[calc(100dvh-140px)] min-h-[480px] max-w-5xl mx-auto space-y-2 dir-rtl">
+      {/* Sleek Compact Header Bar */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#A29BFE] p-2.5 sm:p-3.5 shadow-xs flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl sm:text-2xl shadow-xs shrink-0">
             🦉
           </div>
-          <div>
-            <h2 className="font-bold text-[#2D3436] text-sm sm:text-xl flex items-center gap-2">
-              <span>استاد دانا (معلم هوشمند)</span>
-              <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                آماده
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-black text-[#2D3436] text-xs sm:text-base truncate">
+                استاد دانا (معلم هوشمند ریاضی)
+              </h2>
+              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                آنلاین
               </span>
-            </h2>
-            <p className="text-[11px] sm:text-xs text-slate-500 font-medium">پاسخگویی به زبان ساده و شیرین با رسم شکل</p>
+            </div>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
+              تدریس مفهومی با شکل، مثال‌های ملموس و بازی
+            </p>
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 bg-[#FFEAA7] px-4 py-2 rounded-full border-2 border-[#FDCB6E] text-[#D35400] font-bold text-xs shadow-xs">
-          <span className="text-base">⭐</span>
-          <span>هر سوال = ۱ امتیاز پاداش!</span>
+        {/* Header Actions */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Toggle Suggested Questions */}
+          <button
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black border transition-all cursor-pointer flex items-center gap-1 ${
+              showSuggestions 
+                ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs' 
+                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+            }`}
+            title="نمایش یا بستن سوالات آماده برای فضای بیشتر"
+          >
+            <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+            <span className="hidden sm:inline">سوالات آماده</span>
+            {showSuggestions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+
+          {/* New Chat Button */}
+          <button
+            onClick={handleClearChat}
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1"
+            title="شروع گفتگوی جدید"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">گفتگوی جدید</span>
+          </button>
         </div>
       </div>
 
-      {/* Educational Tip Box */}
-      <div className="bg-[#E1F5FE] rounded-2xl sm:rounded-[2rem] p-3 sm:p-5 flex items-center gap-3 sm:gap-4 border-2 sm:border-4 border-[#00B0FF] shadow-xs shrink-0">
-        <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-inner shrink-0">
-          💡
-        </div>
-        <div>
-          <h3 className="text-xs sm:text-base font-bold text-[#01579B]">نکته روز معلم دانا</h3>
-          <p className="text-[#0277BD] mt-0.5 text-[11px] sm:text-sm leading-relaxed font-medium">
-            مسئله‌های بزرگ رو به تیکه‌های کوچیک تبدیل کن! ریاضی مثل حل کردن یک پازل دوست‌داشتنیه. 🧩
-          </p>
-        </div>
-      </div>
+      {/* Collapsible Slim Suggestions Bar */}
+      {showSuggestions && (
+        <div className="bg-white/95 border-2 border-amber-200/80 rounded-2xl p-2 shadow-2xs space-y-1.5 shrink-0 transition-all animate-in fade-in duration-150">
+          {/* Categories Horizontal Scroll */}
+          <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              {QUESTION_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    playSound('click', soundEnabled);
+                    setSelectedCatId(cat.id);
+                    setSuggestionOffset(0);
+                  }}
+                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 border ${
+                    selectedCatId === cat.id
+                      ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
 
-      {/* Category Tabs & Shuffle Control Bar */}
-      <div className="space-y-2 shrink-0 bg-white/90 p-2 sm:p-3 border-2 border-amber-200 rounded-2xl shadow-xs dir-rtl">
-        {/* Category Filter Chips & Shuffle Button */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {QUESTION_CATEGORIES.map((cat) => (
+            <button
+              onClick={handleShuffleSuggestions}
+              className="text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg border border-indigo-200 transition-all cursor-pointer flex items-center gap-1 shrink-0"
+              title="تغییر نمونه سوالات"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span className="hidden sm:inline">تازه کردن 🎲</span>
+            </button>
+          </div>
+
+          {/* Quick Question Chips Carousel (Single Compact Row) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {getDisplayedQuestions().map((q, idx) => (
               <button
-                key={cat.id}
-                onClick={() => {
-                  playSound('click', soundEnabled);
-                  setSelectedCatId(cat.id);
-                  setSuggestionOffset(0);
-                }}
-                className={`text-[10px] sm:text-xs font-black px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 border ${
-                  selectedCatId === cat.id
-                    ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-xs scale-102'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                }`}
+                key={`${selectedCatId}-${suggestionOffset}-${idx}`}
+                onClick={() => handleSendMessage(q)}
+                disabled={loading}
+                className="text-[10px] sm:text-xs bg-amber-50/80 hover:bg-amber-400 text-amber-900 font-bold px-2.5 py-1 rounded-xl border border-amber-200 hover:border-amber-400 whitespace-nowrap transition-all shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
               >
-                <span>{cat.icon}</span>
-                <span>{cat.name}</span>
+                {q}
               </button>
             ))}
           </div>
-
-          {/* Shuffle Button */}
-          <button
-            onClick={handleShuffleSuggestions}
-            className="text-[11px] sm:text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 py-1.5 rounded-xl border-2 border-purple-300 shadow-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95"
-            title="نمایش پیشنهادها و سوالات تازه"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>تغییر پیشنهادها 🎲</span>
-          </button>
         </div>
+      )}
 
-        {/* Displayed Suggested Question Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pt-1 border-t border-slate-100">
-          <span className="text-xs font-extrabold text-amber-700 whitespace-nowrap flex items-center gap-1 pr-1 shrink-0">
-            <Lightbulb className="w-4 h-4 text-amber-500 animate-pulse" />
-            <span>سوالات پیشنهادی:</span>
-          </span>
-          {getDisplayedQuestions().map((q, idx) => (
-            <button
-              key={`${selectedCatId}-${suggestionOffset}-${idx}`}
-              onClick={() => handleSendMessage(q)}
-              disabled={loading}
-              className="text-[11px] sm:text-xs bg-amber-50 hover:bg-amber-500 text-amber-900 hover:text-white font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border border-amber-200 hover:border-amber-500 whitespace-nowrap transition-all shadow-2xs cursor-pointer disabled:opacity-50 min-h-[34px] flex items-center gap-1 animate-fade-in"
-            >
-              <span>{q}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Messages Box */}
-      <div className="flex-1 overflow-y-auto bg-white/80 border-2 sm:border-4 border-[#A29BFE] rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 space-y-3 sm:space-y-4 shadow-sm">
+      {/* Main Chat Messages Viewport (Takes Full Remaining Space) */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto bg-white/90 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 sm:space-y-4 shadow-sm overscroll-contain"
+      >
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <div className={`flex items-start gap-2 sm:gap-3 max-w-[95%] sm:max-w-[85%] ${
+            <div className={`flex items-start gap-2 sm:gap-3 max-w-[96%] sm:max-w-[85%] ${
               msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
             }`}>
-              {/* Avatar Icon */}
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-base sm:text-xl shrink-0 shadow-xs border-2 ${
+              {/* Avatar */}
+              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shrink-0 shadow-2xs border-2 ${
                 msg.sender === 'user' 
                   ? 'bg-[#74B9FF] border-white text-white' 
                   : 'bg-[#FF6B6B] border-white text-white'
               }`}>
-                {msg.sender === 'user' ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : '🦉'}
+                {msg.sender === 'user' ? <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : '🦉'}
               </div>
 
-              {/* Speech Bubble */}
-              <div className={`relative p-3.5 sm:p-5 text-xs sm:text-base leading-relaxed shadow-xs ${
+              {/* Message Bubble */}
+              <div className={`p-3 sm:p-4 text-xs sm:text-[15px] leading-relaxed shadow-2xs ${
                 msg.sender === 'user'
-                  ? 'bg-[#6C5CE7] text-white rounded-2xl sm:rounded-[2rem] rounded-tr-none shadow-[0_3px_0_0_#4834D4] font-bold'
-                  : 'bg-white text-[#2D3436] border-2 sm:border-4 border-[#A29BFE] rounded-2xl sm:rounded-[2rem] rounded-tl-none font-medium'
+                  ? 'bg-gradient-to-br from-[#6C5CE7] to-[#5843E0] text-white rounded-2xl rounded-tr-none shadow-[0_2px_0_0_#4834D4] font-semibold'
+                  : 'bg-white text-[#2D3436] border-2 border-[#D8D4FD] rounded-2xl rounded-tl-none font-normal'
               }`}>
-                {/* Text Content */}
-                <div className="whitespace-pre-line text-xs sm:text-base dir-rtl">
+                {/* Body Text */}
+                <div className="whitespace-pre-line dir-rtl leading-relaxed font-sans">
                   {msg.text}
                 </div>
 
                 {/* Footer Controls for AI Message */}
                 {msg.sender === 'tutor' && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] text-slate-400">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">{msg.timestamp}</span>
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-400">
+                    <span className="font-bold text-slate-400">{msg.timestamp}</span>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
+                      {/* Audio Read-aloud button */}
+                      <button
+                        onClick={() => handleSpeakText(msg.id, msg.text)}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          speakingId === msg.id
+                            ? 'bg-[#6C5CE7] text-white animate-pulse'
+                            : 'hover:bg-purple-50 text-[#6C5CE7] border border-purple-200'
+                        }`}
+                        title="خواندن صوتی متن"
+                      >
+                        {speakingId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        <span className="text-[10px]">{speakingId === msg.id ? 'توقف صوت' : 'پخش صوتی'}</span>
+                      </button>
+
                       {/* Copy */}
                       <button
                         onClick={() => handleCopy(msg.id, msg.text)}
-                        className="p-1 sm:p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center"
+                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                         title="کپی پاسخ"
                       >
-                        {copiedId === msg.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                        {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -418,15 +471,15 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white text-white flex items-center justify-center text-base sm:text-xl animate-bounce shadow-xs">
+          <div className="flex items-start gap-2">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white text-white flex items-center justify-center text-sm sm:text-base animate-bounce shadow-2xs shrink-0">
               🦉
             </div>
-            <div className="bg-white border-2 sm:border-4 border-[#A29BFE] rounded-2xl sm:rounded-[2rem] rounded-tl-none p-3 sm:p-4 shadow-xs flex items-center gap-2.5">
+            <div className="bg-white border-2 border-[#D8D4FD] rounded-2xl rounded-tl-none p-2.5 sm:p-3.5 shadow-2xs flex items-center gap-2">
               <div className="flex items-center gap-1">
-                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#6C5CE7] animate-ping"></span>
-                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#A29BFE] animate-ping delay-100"></span>
-                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#FF7675] animate-ping delay-200"></span>
+                <span className="w-2 h-2 rounded-full bg-[#6C5CE7] animate-ping"></span>
+                <span className="w-2 h-2 rounded-full bg-[#A29BFE] animate-ping delay-100"></span>
+                <span className="w-2 h-2 rounded-full bg-[#FF7675] animate-ping delay-200"></span>
               </div>
               <span className="text-xs font-bold text-[#6C5CE7]">استاد دانا در حال نوشتن پاسخ... 💭</span>
             </div>
@@ -436,8 +489,8 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Controls */}
-      <div className="bg-white p-2 sm:p-3 border-2 sm:border-4 border-[#A29BFE] rounded-2xl sm:rounded-[2rem] shadow-sm shrink-0">
+      {/* Sleek Input Controls Bar */}
+      <div className="bg-white p-2 sm:p-3 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl shadow-sm shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -449,23 +502,23 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           <button
             type="button"
             onClick={handleVoiceInput}
-            className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer min-w-[44px] min-h-[44px] ${
+            className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer min-w-[40px] sm:min-w-[44px] min-h-[40px] sm:min-h-[44px] ${
               isListening 
                 ? 'bg-rose-500 border-rose-600 text-white animate-pulse' 
-                : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
             }`}
-            title={isListening ? 'در حال شنیدن...' : 'ورودی صوتی (صحبت کن)'}
+            title={isListening ? 'در حال شنیدن صدای شما...' : 'صحبت کردن با صدا (میکروفون)'}
           >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            {isListening ? <MicOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5 text-[#6C5CE7]" />}
           </button>
 
-          {/* Textarea Input */}
+          {/* Text Input */}
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? 'در حال دریافت صدای شما...' : 'سوالت رو اینجا تایپ کن...'}
-            className="flex-1 min-w-0 bg-[#F0F2F5] border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3.5 text-xs sm:text-sm font-medium text-[#2D3436] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] transition-all dir-rtl min-h-[44px]"
+            placeholder={isListening ? 'در حال شنیدن صدای شما...' : 'سؤال، تمرین یا هر مبحثی که می‌خواهی بپرس...'}
+            className="flex-1 min-w-0 bg-[#F4F5FA] border border-slate-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#2D3436] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] transition-all dir-rtl min-h-[40px] sm:min-h-[44px]"
             disabled={loading}
           />
 
@@ -473,10 +526,10 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="bg-[#6C5CE7] hover:bg-[#5b4cc4] disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold px-3.5 sm:px-6 py-2.5 sm:py-3.5 rounded-xl shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:shadow-none min-h-[44px]"
+            className="bg-[#6C5CE7] hover:bg-[#5843E0] disabled:bg-slate-200 disabled:text-slate-400 text-white font-black px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl shadow-[0_2px_0_0_#4834D4] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:shadow-none min-h-[40px] sm:min-h-[44px]"
           >
-            <span className="text-xs sm:text-sm">بپرس!</span>
-            <Send className="w-4 h-4 rotate-180" />
+            <span className="text-xs sm:text-sm">بپرس</span>
+            <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180" />
           </button>
         </form>
       </div>

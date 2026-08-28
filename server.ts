@@ -57,8 +57,13 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
-// Models to try in order of preference (using official supported models from @google/genai SDK)
-const PRIMARY_MODELS = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+// Models to try in order of preference (prioritizing fast and high-availability models to avoid 503 capacity spikes)
+const PRIMARY_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
+  'gemini-3.7-flash',
+  'gemini-2.5-flash',
+];
 
 // Helper to safely parse and extract clean base64 data and mimeType from Data URLs
 function parseBase64Image(dataUrl: string, defaultMime = 'image/png') {
@@ -97,32 +102,82 @@ function getAIClient() {
   });
 }
 
+// Robust fallback runner across models with retry & transient capacity error handling
+async function generateGeminiContentWithFallback(
+  contents: any,
+  options: {
+    systemInstruction?: string;
+    temperature?: number;
+    responseMimeType?: string;
+    responseSchema?: any;
+    models?: string[];
+  } = {}
+): Promise<string> {
+  const client = getAIClient();
+  const models = options.models || PRIMARY_MODELS;
+  let lastError: any = null;
+
+  for (const modelName of models) {
+    try {
+      const config: any = {};
+      if (options.systemInstruction) config.systemInstruction = options.systemInstruction;
+      if (options.temperature !== undefined) config.temperature = options.temperature;
+      if (options.responseMimeType) config.responseMimeType = options.responseMimeType;
+      if (options.responseSchema) config.responseSchema = options.responseSchema;
+
+      const response = await client.models.generateContent({
+        model: modelName,
+        contents: contents,
+        config: Object.keys(config).length > 0 ? config : undefined,
+      });
+
+      if (response && response.text) {
+        return response.text;
+      }
+    } catch (err: any) {
+      lastError = err;
+      const isCapacityError = 
+        err?.message?.includes('503') || 
+        err?.message?.includes('UNAVAILABLE') || 
+        err?.message?.includes('high demand') ||
+        err?.message?.includes('429') ||
+        err?.message?.includes('RESOURCE_EXHAUSTED');
+
+      console.log(`[Gemini Fallback] Model ${modelName} returned status (${err?.status || err?.code || 'error'}). Proceeding to next model...`);
+
+      if (isCapacityError) {
+        // Short pause to let transient spikes subside
+        await new Promise((res) => setTimeout(res, 200));
+      }
+    }
+  }
+
+  throw lastError || new Error('امکان پاسخگویی از طریق مدل‌های هوش مصنوعی وجود نداشت.');
+}
+
 const TUTOR_SYSTEM_INSTRUCTION = `
-تو «آموزگار دانا»، معلم خصوصی مهربان، باحوصله، دلسوز و شاد برای درس ریاضی پایه سوم ابتدایی در ایران هستی.
-مخاطب تو یک کودک ۸ تا ۹ ساله است.
+تو «استاد دانا» هستی، معلم خصوصی مهربان، باحوصله، صبور و شاد ریاضی پایه سوم ابتدایی در ایران.
 
-اصول بنیادین آموزش تو:
-۱. ادبیات و لحن:
-   - بسیار صمیمی، پرانرژی، کودکانه و سرشار از تحسین و تشویق (مانند: «آفرین قهرمان باهوشم! 🌟», «چه سوال قشنگی پرسیدی! 👏»).
-   - جملات را کوتاه، خوانا و با کلمات فارسی روان و ساده بنویس.
-   - از ایموجی‌های دوست‌داشتنی استفاده کن (⭐️, 🍕, 🎈, 🐱, 🏆, 📐).
+قوانین مهم رفتاری و تدریس تو:
+۱. تشخیص نیت کاربر در ابتدای پاسخ:
+   - اگر سؤال ریاضی یا درخواست توضیح/تمرین است: با زبان خیلی ساده، صمیمی، قدم‌به‌قدم و با مثال‌های ملموس روزمره (شکلات، پیتزا، تیله، سیب) و شکل ذهنی توضیح بده.
+   - اگر سلام، احوال‌پرسی، تعریف، شوخی یا حرف غیرریاضی است: خیلی طبیعی، گرم و دوستانه جواب بده (دقیقاً مثل یک معلم مهربان). در صورت مناسب بودن، به آرامی و با لبخند کودک را به سمت دنیای شیرین ریاضی هدایت کن.
+   - اگر سؤال خارج از ریاضی پایه سوم است (مثلاً دانشگاهی، مباحث پایه‌های دیگر، یا متفرقه): مؤدبانه و صمیمی بگو که تخصصت فقط ریاضی پایه سوم دبستان است و پیشنهاد بده که در مباحث سوم (ضرب، کسر، ساعت، محیط و مساحت و...) با هم تمرین کنید.
 
-۲. روش آموزشی سقراطی (هدایت گام‌به‌گام به جای دادن لقمه آماده):
-   - هرگز پاسخ نهایی مسئله را یکجا لو نده!
-   - مسئله را با یک مثال ملموس روزمره (پیتزا، شکلات، تیله، اسکناس) تصویرسازی کن.
-   - مرحله اول را با آرامش توضیح بده و در انتها از کودک یک سوال کوچک بپرس تا مرحله بعد را خودش بگوید.
+۲. عدم استفاده از ساختارهای کلیشه‌ای:
+   - هرگز ساختار اجباری یا قالب تکراری مانند «۱. مسئله را بخوان ۲. شکل بکش ۳. حساب کن» را برای سؤال‌های غیرریاضی یا عمومی استفاده نکن. پاسخ باید پویا، طبیعی و متناسب با حرف کاربر باشد.
 
-۳. سرفصل‌های دقیق کتاب ریاضی سوم دبستان:
-   - فصل ۱: الگوها و شمارش چندتاچندتا، الگوی متقارن، ماشین‌های ورودی-خروجی، ساعت بعدازظهر.
-   - فصل ۲: عددهای ۴ رقمی (هزارها)، جدول ارزش مکانی، تومان و ریال، گسترده‌نویسی، تقریب.
-   - فصل ۳: کسرها، مفهوم جزء و کل، مقایسه با شکل و محور، کسرهای مساوی.
-   - فصل ۴: ضرب و تقسیم، دسته‌ها و بسته‌ها، جدول ضرب ۱ تا ۱۰، مفهوم تقسیم و دسته‌بندی مساوی.
-   - فصل ۵: محیط (دور تا دور شکل) و مساحت (سطح پوشانده‌شده با مربع‌های واحد).
-   - فصل ۶: جمع و تفریق تکنیکی ۴ رقمی با جدول ارزش مکانی و انتقال ده‌تایی و صدتایی.
-   - فصل ۷: آمار و احتمال، جدول داده‌ها، چوب‌خط ۵ تایی، نمودار ستونی، چرخنده شانس.
-   - فصل ۸: ضرب در ۱۰، ۱۰۰، ۱۰۰۰، ضرب‌های فرآیندی دو رقم در یک رقم.
+۳. لحن و ادبیات:
+   - بسیار گرم، تشویقی، کودکانه و ساده.
+   - از کلمات سخت، پیچیده و بیش از حد رسمی پرهیز کن.
+   - از ایموجی‌های شاد و متناسب استفاده کن (🌟, 🍕, 👏, 🎈, 🐱, 🏆, 📐).
 
-۴. نگارش اعداد: تمامی اعداد را به صورت فارسی (۱، ۲، ۳...) بنویس.
+۴. برخورد با اشتباه کودک:
+   - اگر کاربر در پاسخ به تمرینی اشتباه کرد، ابتدا حتماً تلاش یا نقطه قوت او را تحسین کن (مثلاً: «آفرین که خیلی خوب فکر کردی و تا اینجا پیش رفتی!»)، سپس اشتباه را با ملایمت و با یک مثال راهنما اصلاح کن.
+
+۵. اختصار و وضوح:
+   - پاسخ‌ها را کوتاه، جذاب و کاملاً قابل‌فهم برای کودک ۸-۹ ساله نگه دار. از زیاده‌گویی و انشاهای طولانی خودداری کن.
+   - همه اعداد را به فارسی (۱، ۲، ۳...) بنویس.
 `;
 
 // Helper function for optional DeepSeek API fallback
@@ -230,26 +285,10 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
   let lastError: any = null;
 
   try {
-    const client = getAIClient();
-    for (const modelName of PRIMARY_MODELS) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: contents,
-          config: {
-            systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-            temperature: 0.7,
-          },
-        });
-        if (response.text) {
-          responseText = response.text;
-          break;
-        }
-      } catch (e: any) {
-        lastError = e;
-        console.warn(`Chat model ${modelName} failed:`, e.message);
-      }
-    }
+    responseText = await generateGeminiContentWithFallback(contents, {
+      systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+      temperature: 0.7,
+    });
   } catch (err: any) {
     lastError = err;
   }
@@ -283,8 +322,6 @@ app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async
 
     const { cleanBase64, mimeType: extractedMime } = parseBase64Image(imageBase64, mimeType);
 
-    const client = getAIClient();
-
     const promptText = `
 این عکس حاوی صفحه کتاب، دفتر یا دست‌نویس تمرین ریاضی پایه سوم ابتدایی است.
 وظایف تو:
@@ -297,39 +334,30 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
     `;
 
     let responseText = '';
-    let lastError: any = null;
-
-    for (const modelName of PRIMARY_MODELS) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    data: cleanBase64,
-                    mimeType: extractedMime,
-                  },
+    try {
+      responseText = await generateGeminiContentWithFallback(
+        [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  data: cleanBase64,
+                  mimeType: extractedMime,
                 },
-                { text: promptText },
-              ],
-            },
-          ],
-          config: {
-            systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-            temperature: 0.4,
+              },
+              { text: promptText },
+            ],
           },
-        });
-
-        if (response.text) {
-          responseText = response.text;
-          break;
+        ],
+        {
+          systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+          temperature: 0.4,
         }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Image solver model ${modelName} failed:`, err.message);
+      );
+    } catch (err: any) {
+      if (err?.message === 'GEMINI_API_KEY_MISSING') {
+        throw err;
       }
     }
 
@@ -337,7 +365,7 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
       return res.json({ explanation: responseText });
     }
 
-    throw lastError || new Error('امکان تحلیل تصویر با مدل‌های هوش مصنوعی وجود نداشت.');
+    throw new Error('امکان تحلیل تصویر با مدل‌های هوش مصنوعی وجود نداشت.');
 
   } catch (err: any) {
     console.error('Image solver error:', err);
@@ -356,53 +384,38 @@ app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'],
 
   try {
     let responseText = '';
-    let lastError: any = null;
+    const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
+    سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
 
     try {
-      const client = getAIClient();
-      const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
-      سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
-
-      for (const modelName of PRIMARY_MODELS) {
-        try {
-          const response = await client.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-              systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: Type.ARRAY,
-                description: 'فهرستی از سوالات چهارگزینه‌ای ریاضی سوم دبستان',
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    question: { type: Type.STRING, description: 'متن سوال با اعداد فارسی و واضح' },
-                    options: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                      description: '4 گزینه برای پاسخ',
-                    },
-                    correctAnswerIndex: { type: Type.INTEGER, description: 'اندیس گزینه صحیح از 0 تا 3' },
-                    explanation: { type: Type.STRING, description: 'توضیح کامل و گام به گام پاسخ' },
-                    hint: { type: Type.STRING, description: 'یک راهنمایی کوچک و دوستانه' },
-                  },
-                  required: ['question', 'options', 'correctAnswerIndex', 'explanation', 'hint'],
+      responseText = await generateGeminiContentWithFallback(
+        prompt,
+        {
+          systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            description: 'فهرستی از سوالات چهارگزینه‌ای ریاضی سوم دبستان',
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                question: { type: Type.STRING, description: 'متن سوال با اعداد فارسی و واضح' },
+                options: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: '4 گزینه برای پاسخ',
                 },
+                correctAnswerIndex: { type: Type.INTEGER, description: 'اندیس گزینه صحیح از 0 تا 3' },
+                explanation: { type: Type.STRING, description: 'توضیح کامل و گام به گام پاسخ' },
+                hint: { type: Type.STRING, description: 'یک راهنمایی کوچک و دوستانه' },
               },
+              required: ['question', 'options', 'correctAnswerIndex', 'explanation', 'hint'],
             },
-          });
-
-          if (response.text) {
-            responseText = response.text;
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
+          },
         }
-      }
+      );
     } catch (clientErr: any) {
-      lastError = clientErr;
+      // Graceful fallback below
     }
 
     if (responseText) {
@@ -453,7 +466,6 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
   ];
 
   try {
-    const client = getAIClient();
     const promptText = `
 یک نکته، ترفند، راز یادگیری یا مسئله کوتاه و بسیاااار شاد و انگیزشی ریاضی برای یک دانش‌آموز پایه سوم ابتدایی در ایران بنویس.
 نکته می‌تواند درباره یکی از موضوعات زیر باشد:
@@ -469,29 +481,18 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
     `;
 
     let responseText = '';
-    for (const modelName of PRIMARY_MODELS) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: promptText,
-          config: {
-            systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-            temperature: 0.85,
-          },
-        });
-
-        if (response.text) {
-          responseText = response.text.trim();
-          break;
-        }
-      } catch (err: any) {
-        // Silently continue to fallback model without noisy errors
-      }
+    try {
+      responseText = await generateGeminiContentWithFallback(promptText, {
+        systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+        temperature: 0.85,
+      });
+    } catch (err: any) {
+      // Handled by fallback list
     }
 
     if (responseText) {
-      dailyTipCache = { date: todayDateStr, tip: responseText };
-      return res.json({ tip: responseText, cached: false, date: todayDateStr });
+      dailyTipCache = { date: todayDateStr, tip: responseText.trim() };
+      return res.json({ tip: responseText.trim(), cached: false, date: todayDateStr });
     }
 
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
