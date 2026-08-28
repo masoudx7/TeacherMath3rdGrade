@@ -355,6 +355,10 @@ export default function App() {
           <CurriculumGuide
             soundEnabled={soundEnabled}
             onAddStars={handleAddStars}
+            onSelectChapterForGame={(chapterId) => {
+              setSelectedChapterForGames(chapterId as ChapterId);
+              setActiveTab('games');
+            }}
             onSelectChapterForQuiz={(chapterId) => {
               setSelectedChapterForGames(chapterId as ChapterId);
               setActiveTab('games');

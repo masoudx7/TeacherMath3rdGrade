@@ -16,6 +16,10 @@ export interface ChapterInfo {
   color: string;
   description: string;
   topics: string[];
+  gameId?: string;
+  gameTitle?: string;
+  gameIcon?: string;
+  gameDescription?: string;
 }
 
 export interface ChatMessage {
@@ -44,18 +48,28 @@ export interface QuizQuestion {
   visualData?: any;
 }
 
+export interface LessonExample {
+  title: string;
+  problem: string;
+  solution: string;
+  visualCue?: string;
+  keyTakeaway?: string;
+}
+
 export interface Lesson {
   id: string;
   chapterId: ChapterId;
   title: string;
   lessonNumber: number;
   shortSummary: string;
+  explanationText?: string;
   visualExplanation: {
     emoji: string;
     diagramTitle: string;
     description: string;
     formulaOrRule?: string;
   };
+  examples?: LessonExample[];
   commonMistakes: string[];
   easyQuestions: QuizQuestion[];
   mediumQuestions: QuizQuestion[];

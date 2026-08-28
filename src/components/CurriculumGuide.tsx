@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CHAPTERS, CHAPTER_LESSONS } from '../data/curriculum';
-import { ChapterInfo, ChapterId, Lesson, QuizQuestion } from '../types';
+import { ChapterInfo, ChapterId, Lesson, QuizQuestion, LessonExample } from '../types';
 import { playSound } from '../utils/sound';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { 
@@ -8,25 +8,30 @@ import {
   CheckCircle2, 
   Sparkles, 
   Lightbulb, 
-  Eye, 
+  Gamepad2, 
   AlertTriangle, 
   Volume2, 
   X, 
   Check, 
-  HelpCircle,
   Award,
-  ChevronLeft
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Star,
+  PlayCircle
 } from 'lucide-react';
 
 interface CurriculumGuideProps {
   soundEnabled: boolean;
   onSelectChapterForQuiz: (chapterId: string) => void;
+  onSelectChapterForGame?: (chapterId: ChapterId) => void;
   onAddStars?: (stars: number) => void;
 }
 
 export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   soundEnabled,
   onSelectChapterForQuiz,
+  onSelectChapterForGame,
   onAddStars,
 }) => {
   const [selectedLessonChapter, setSelectedLessonChapter] = useState<ChapterInfo | null>(null);
@@ -37,14 +42,16 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [showExplanations, setShowExplanations] = useState<Record<string, boolean>>({});
   const [showHints, setShowHints] = useState<Record<string, boolean>>({});
+  const [activeTabSection, setActiveTabSection] = useState<'all' | 'lesson' | 'examples' | 'exercises'>('all');
 
-  const handleOpenLessons = (chapter: ChapterInfo) => {
+  const handleOpenLessons = (chapter: ChapterInfo, lessonIdx = 0) => {
     playSound('click', soundEnabled);
     setSelectedLessonChapter(chapter);
-    setSelectedLessonIndex(0);
+    setSelectedLessonIndex(lessonIdx);
     setSelectedAnswers({});
     setShowExplanations({});
     setShowHints({});
+    setActiveTabSection('all');
   };
 
   const handleSpeak = (id: string, text: string) => {
@@ -74,6 +81,22 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
     }
   };
 
+  const handleGoToGame = (chapterId: ChapterId) => {
+    playSound('click', soundEnabled);
+    setSelectedLessonChapter(null);
+    if (onSelectChapterForGame) {
+      onSelectChapterForGame(chapterId);
+    } else {
+      onSelectChapterForQuiz(chapterId);
+    }
+  };
+
+  const handleGoToQuiz = (chapterId: string) => {
+    playSound('click', soundEnabled);
+    setSelectedLessonChapter(null);
+    onSelectChapterForQuiz(chapterId);
+  };
+
   const activeLessons: Lesson[] = selectedLessonChapter 
     ? (CHAPTER_LESSONS[selectedLessonChapter.id as ChapterId] || []) 
     : [];
@@ -87,11 +110,11 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 bg-[#FFEAA7] text-[#D35400] px-3 py-1 rounded-full text-xs font-bold border border-[#FDCB6E]">
             <BookOpen className="w-4 h-4 text-[#D35400]" />
-            <span>کتاب درسی رسمی آموزش و پرورش</span>
+            <span>کتاب درسی رسمی ریاضی سوم دبستان (۸ فصل کامل)</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">سرفصل‌های کامل کتاب درسی ریاضی سوم دبستان</h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            مرور نکات کلیدی، تدریس تصویری مفاهیم و تمرین‌های تفکیکی آسان تا چالشی
+          <h2 className="text-xl sm:text-2xl font-black text-[#2D3436]">درس‌نامه‌ها، مثال‌های حل‌شده و دست‌ورزی تعاملی</h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+            آموزش مفهومی هر فصل با تصاویر و فرمول‌های طلایی، مثال‌های روزمره و اتصال مستقیم به ۱۰ بازی تعاملی
           </p>
         </div>
         <div className="w-14 h-14 bg-[#6C5CE7] rounded-2xl flex items-center justify-center text-3xl text-white shadow-xs shrink-0">
@@ -102,62 +125,101 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
       {/* Chapters Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {CHAPTERS.map((chapter: ChapterInfo) => {
-          const lessonCount = (CHAPTER_LESSONS[chapter.id as ChapterId] || []).length;
+          const lessonList = CHAPTER_LESSONS[chapter.id as ChapterId] || [];
+          const lessonCount = lessonList.length;
 
           return (
             <div
               key={chapter.id}
-              className="bg-white border-4 border-[#FFEAA7] hover:border-[#FDCB6E] rounded-[2rem] p-6 shadow-[0_6px_0_0_#E0E0E0] transition-all space-y-4 flex flex-col justify-between"
+              className="bg-white border-4 border-[#FFEAA7] hover:border-[#FDCB6E] rounded-[2rem] p-5 sm:p-6 shadow-[0_6px_0_0_#E0E0E0] transition-all space-y-4 flex flex-col justify-between"
             >
-              <div className="space-y-3">
+              <div className="space-y-3.5">
+                {/* Top Badge & Number */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
-                    فصل {chapter.chapterNumber}
-                  </span>
-                  <span className="text-2xl font-bold text-slate-400 text-xs bg-slate-100 px-2.5 py-1 rounded-full">
-                    {lessonCount > 0 ? `${lessonCount} درس‌نامه تعاملی` : 'کامل'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
+                      فصل {chapter.chapterNumber}
+                    </span>
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+                      {lessonCount} درس‌نامه کامل
+                    </span>
+                  </div>
+                  <span className="text-2xl">{chapter.gameIcon || '📐'}</span>
                 </div>
 
-                <h3 className="text-xl font-bold text-[#2D3436]">{chapter.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">{chapter.description}</p>
+                {/* Title & Description */}
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-[#2D3436] mb-1">{chapter.title}</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-medium">{chapter.description}</p>
+                </div>
 
                 {/* Topics Bullet points */}
                 <div className="bg-[#FFF9E5] border-2 border-[#FFEAA7] rounded-2xl p-3.5 space-y-2">
-                  <span className="text-xs font-bold text-[#D35400] block flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                    موضوعات اصلی این فصل:
+                  <span className="text-xs font-black text-[#D35400] flex items-center gap-1.5">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    مباحث کلیدی این فصل:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {chapter.topics.map((topic, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                      <div key={idx} className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         <span>{topic}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Interactive Game Connection Banner */}
+                {chapter.gameTitle && (
+                  <div 
+                    onClick={() => handleGoToGame(chapter.id)}
+                    className="bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 bg-[#6C5CE7] text-white rounded-xl flex items-center justify-center text-lg shadow-xs group-hover:scale-105 transition-transform shrink-0">
+                        <Gamepad2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-indigo-950 group-hover:text-indigo-700 transition-colors">
+                          بازی تعاملی: {chapter.gameTitle}
+                        </div>
+                        <div className="text-[11px] text-indigo-800/80 font-medium line-clamp-1">
+                          {chapter.gameDescription || 'دست‌ورزی و تمرین زنده مفاهیم ریاضی'}
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronLeft className="w-4 h-4 text-indigo-500 group-hover:-translate-x-1 transition-transform shrink-0" />
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => handleOpenLessons(chapter)}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  title="مشاهده تدریس، فرمول، مثال‌ها و تمرین‌ها"
                 >
-                  <Eye className="w-4 h-4 text-emerald-600" />
-                  <span>درس‌نامه و تدریس تصویری</span>
+                  <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>درس‌نامه و مثال‌ها</span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    playSound('click', soundEnabled);
-                    onSelectChapterForQuiz(chapter.id);
-                  }}
-                  className="bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none"
+                  onClick={() => handleGoToGame(chapter.id)}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-900 border-2 border-amber-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  title="ورود مستقیم به بازی و دست‌ورزی تعاملی این فصل"
                 >
-                  <Sparkles className="w-4 h-4 text-[#FFEAA7]" />
-                  <span>آزمون و بازی این فصل</span>
+                  <Gamepad2 className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>بازی و دست‌ورزی 🎮</span>
+                </button>
+
+                <button
+                  onClick={() => handleGoToQuiz(chapter.id)}
+                  className="bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none"
+                  title="شرکت در آزمون ۴ گزینه‌ای با نمره و ستاره"
+                >
+                  <Sparkles className="w-4 h-4 text-[#FFEAA7] shrink-0" />
+                  <span>آزمون تستی</span>
                 </button>
               </div>
             </div>
@@ -168,44 +230,58 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
       {/* Interactive Lesson & Visual Models Modal */}
       {selectedLessonChapter && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="bg-[#6C5CE7] text-white p-4 sm:p-6 flex items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-[#6C5CE7] to-[#4834D4] text-white p-4 sm:p-5 flex items-center justify-between gap-4 shrink-0">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="bg-white/20 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                  <span className="bg-white/20 text-white text-xs font-black px-3 py-0.5 rounded-full">
                     فصل {selectedLessonChapter.chapterNumber}
                   </span>
-                  <h3 className="text-lg sm:text-xl font-bold">{selectedLessonChapter.title}</h3>
+                  <h3 className="text-base sm:text-xl font-black">{selectedLessonChapter.title}</h3>
                 </div>
-                <p className="text-xs text-purple-100 font-medium">درس‌نامه‌ها، مدل‌های تصویری و تمرین‌های پله‌پله</p>
+                <p className="text-xs text-purple-100 font-medium">درس‌نامه‌ها، مدل‌های مفهومی، مثال‌های حل‌شده و تمرین‌های پله‌پله</p>
               </div>
 
-              <button
-                onClick={() => setSelectedLessonChapter(null)}
-                className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleGoToGame(selectedLessonChapter.id)}
+                  className="hidden sm:inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>بازی تعاملی فصل</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedLessonChapter(null)}
+                  className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Subnav: Lessons tabs */}
             {activeLessons.length > 1 && (
-              <div className="bg-purple-50 border-b border-purple-200 p-2 flex items-center gap-2 overflow-x-auto">
+              <div className="bg-purple-50 border-b border-purple-200 p-2 flex items-center gap-2 overflow-x-auto shrink-0">
                 {activeLessons.map((l, idx) => (
                   <button
                     key={l.id}
                     onClick={() => {
                       playSound('click', soundEnabled);
                       setSelectedLessonIndex(idx);
+                      setSelectedAnswers({});
+                      setShowExplanations({});
+                      setShowHints({});
                     }}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                       selectedLessonIndex === idx
                         ? 'bg-[#6C5CE7] text-white shadow-xs'
                         : 'bg-white text-purple-900 hover:bg-purple-100 border border-purple-200'
                     }`}
                   >
-                    درس {l.lessonNumber}: {l.title}
+                    <span>{l.visualExplanation.emoji}</span>
+                    <span>درس {l.lessonNumber}: {l.title}</span>
                   </button>
                 ))}
               </div>
@@ -216,55 +292,131 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
               {currentLesson ? (
                 <>
                   {/* Lesson Title & Speech Audio */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <span>{currentLesson.visualExplanation.emoji}</span>
-                        <span>{currentLesson.title}</span>
-                      </h4>
+                  <div className="flex items-start justify-between gap-4 bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{currentLesson.visualExplanation.emoji}</span>
+                        <h4 className="text-base sm:text-lg font-black text-slate-800">
+                          {currentLesson.title}
+                        </h4>
+                      </div>
                       <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
                         {currentLesson.shortSummary}
                       </p>
+                      {currentLesson.explanationText && (
+                        <p className="text-xs text-slate-500 leading-relaxed font-normal pt-1">
+                          {currentLesson.explanationText}
+                        </p>
+                      )}
                     </div>
 
                     <button
-                      onClick={() => handleSpeak(currentLesson.id, `${currentLesson.title}. ${currentLesson.shortSummary}. فرمول یا قاعده: ${currentLesson.visualExplanation.formulaOrRule}`)}
-                      className={`p-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      onClick={() => handleSpeak(
+                        currentLesson.id, 
+                        `${currentLesson.title}. ${currentLesson.shortSummary}. ${currentLesson.explanationText || ''}. قانون طلایی: ${currentLesson.visualExplanation.formulaOrRule}`
+                      )}
+                      className={`p-3 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                         speakingId === currentLesson.id
                           ? 'bg-[#6C5CE7] text-white animate-pulse'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 shadow-xs'
                       }`}
                       title="خواندن صوتی متن درس"
                     >
-                      <Volume2 className="w-5 h-5" />
+                      <Volume2 className="w-5 h-5 text-[#6C5CE7]" />
                     </button>
                   </div>
 
-                  {/* Visual Model Card */}
+                  {/* Section 1: Visual Model & Golden Rule */}
                   <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-3xl p-5 space-y-3 shadow-xs">
-                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
+                    <div className="flex items-center gap-2 text-amber-900 font-black text-xs sm:text-sm">
                       <span className="text-2xl">{currentLesson.visualExplanation.emoji}</span>
                       <span>مدل تصویری و مفهومی: {currentLesson.visualExplanation.diagramTitle}</span>
                     </div>
 
-                    <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/70 text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                    <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/70 text-xs sm:text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-line">
                       {currentLesson.visualExplanation.description}
                     </div>
 
-                    <div className="bg-[#FFEAA7] text-[#D35400] font-black text-xs sm:text-sm p-3 rounded-xl border border-[#FDCB6E] flex items-center gap-2">
-                      <span>📌 قانون طلایی:</span>
-                      <span>{currentLesson.visualExplanation.formulaOrRule}</span>
+                    <div className="bg-[#FFEAA7] text-[#D35400] font-black text-xs sm:text-sm p-3.5 rounded-xl border border-[#FDCB6E] flex items-center gap-2">
+                      <span className="shrink-0">📌 قانون طلایی:</span>
+                      <span className="leading-relaxed">{currentLesson.visualExplanation.formulaOrRule}</span>
                     </div>
                   </div>
 
-                  {/* Common Pitfalls & Mistakes */}
-                  {currentLesson.commonMistakes.length > 0 && (
+                  {/* Section 2: Worked Examples (مثال‌های حل‌شده) */}
+                  {currentLesson.examples && currentLesson.examples.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-black text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                          <span className="text-xl">📝</span>
+                          <span>مثال‌های حل‌شده و گام‌به‌گام ({currentLesson.examples.length} مثال ملموس):</span>
+                        </h5>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3.5">
+                        {currentLesson.examples.map((ex: LessonExample, exIdx: number) => (
+                          <div
+                            key={exIdx}
+                            className="bg-blue-50/60 border-2 border-blue-200/80 rounded-2xl p-4 sm:p-5 space-y-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-2 font-black text-xs sm:text-sm text-blue-950">
+                                <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs shrink-0">
+                                  {exIdx + 1}
+                                </span>
+                                <span>{ex.title}</span>
+                              </div>
+
+                              <button
+                                onClick={() => handleSpeak(
+                                  `ex_${currentLesson.id}_${exIdx}`,
+                                  `مسئله: ${ex.problem}. پاسخ: ${ex.solution}. نکته: ${ex.keyTakeaway || ''}`
+                                )}
+                                className="p-1.5 bg-white hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 transition-all cursor-pointer shrink-0"
+                                title="خواندن صوتی مثال"
+                              >
+                                <Volume2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Problem */}
+                            <div className="bg-white p-3 rounded-xl border border-blue-100 text-xs sm:text-sm font-bold text-slate-800 leading-relaxed">
+                              ❓ مسئله: {ex.problem}
+                            </div>
+
+                            {/* Visual Cue if present */}
+                            {ex.visualCue && (
+                              <div className="bg-indigo-100/70 text-indigo-900 text-xs font-mono font-bold px-3 py-1.5 rounded-lg border border-indigo-200">
+                                💡 مسیر حل: {ex.visualCue}
+                              </div>
+                            )}
+
+                            {/* Solution */}
+                            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-line bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/70">
+                              <strong className="text-emerald-800 font-bold block mb-1">✅ پاسخ تشریحی:</strong>
+                              {ex.solution}
+                            </div>
+
+                            {/* Key Takeaway */}
+                            {ex.keyTakeaway && (
+                              <div className="text-xs text-blue-900 font-semibold bg-blue-100/80 px-3 py-1.5 rounded-lg">
+                                🎯 نکته کلیدی: {ex.keyTakeaway}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 3: Common Pitfalls & Mistakes */}
+                  {currentLesson.commonMistakes && currentLesson.commonMistakes.length > 0 && (
                     <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 space-y-2">
-                      <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-rose-600" />
-                        اشتباهات رایج دانش‌آموزان (مراقب این تله‌ها باش!):
+                      <span className="text-xs sm:text-sm font-black text-rose-800 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        اشتباهات رایج و تله‌های یادگیری (مواظب این موارد باش!):
                       </span>
-                      <ul className="space-y-1 text-xs text-rose-900 font-medium list-disc list-inside">
+                      <ul className="space-y-1.5 text-xs sm:text-sm text-rose-900 font-medium list-disc list-inside leading-relaxed">
                         {currentLesson.commonMistakes.map((m, idx) => (
                           <li key={idx}>{m}</li>
                         ))}
@@ -272,12 +424,17 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                     </div>
                   )}
 
-                  {/* Tiered Practice Questions (Easy, Medium, Hard) */}
-                  <div className="space-y-4">
-                    <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                      <Award className="w-4 h-4 text-amber-500" />
-                      تمرین‌های پله‌پله این درس (سطح‌بندی شده):
-                    </h5>
+                  {/* Section 4: Tiered Practice Questions (Easy, Medium, Hard) */}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h5 className="font-black text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                        <Award className="w-5 h-5 text-amber-500" />
+                        <span>تمرین‌های تعاملی این درس (حل کن و ستاره بگیر):</span>
+                      </h5>
+                      <span className="text-xs text-slate-500 font-medium">
+                        هر پاسخ درست = +۱ ستاره 🌟
+                      </span>
+                    </div>
 
                     {([
                       ...currentLesson.easyQuestions,
@@ -310,7 +467,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                                 className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
                               >
                                 <Lightbulb className="w-3.5 h-3.5" />
-                                <span>{showHints[q.id] ? 'بستن راهنما' : 'راهنمای حل'}</span>
+                                <span>{showHints[q.id] ? 'بستن راهنما' : 'راهنمای حل 💡'}</span>
                               </button>
                             )}
                           </div>
@@ -321,8 +478,8 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
 
                           {/* Hint Box */}
                           {showHints[q.id] && q.hint && (
-                            <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-xs text-amber-900 font-medium">
-                              💡 {q.hint}
+                            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-900 font-medium">
+                              💡 <strong>راهنما:</strong> {q.hint}
                             </div>
                           )}
 
@@ -362,7 +519,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                             <div className={`p-3 rounded-xl text-xs font-medium ${
                               isCorrect ? 'bg-emerald-100 text-emerald-900' : 'bg-rose-100 text-rose-900'
                             }`}>
-                              <strong>{isCorrect ? '✅ آفرین درست بود! ' : '❌ اشتباه شد! '}</strong>
+                              <strong>{isCorrect ? '✅ آفرین! درست پاسخ دادی (+۱ ستاره): ' : '❌ اشتباه شد: '}</strong>
                               {q.explanation}
                             </div>
                           )}
@@ -378,27 +535,32 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="bg-slate-100 p-4 border-t border-slate-200 flex items-center justify-between gap-3">
+            {/* Modal Footer with Direct Game & Quiz Access */}
+            <div className="bg-slate-100 p-3 sm:p-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
               <button
                 onClick={() => setSelectedLessonChapter(null)}
-                className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs border border-slate-300 transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs border border-slate-300 transition-all cursor-pointer"
               >
                 بستن درس‌نامه
               </button>
 
-              <button
-                onClick={() => {
-                  const cId = selectedLessonChapter.id;
-                  setSelectedLessonChapter(null);
-                  playSound('click', soundEnabled);
-                  onSelectChapterForQuiz(cId);
-                }}
-                className="px-5 py-2.5 bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              >
-                <span>شروع آزمون جامع این فصل</span>
-                <Sparkles className="w-4 h-4 text-[#FFEAA7]" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleGoToGame(selectedLessonChapter.id)}
+                  className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <Gamepad2 className="w-4 h-4 text-slate-950" />
+                  <span>بازی تعاملی فصل 🎮</span>
+                </button>
+
+                <button
+                  onClick={() => handleGoToQuiz(selectedLessonChapter.id)}
+                  className="px-4 py-2.5 bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-black rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4 text-[#FFEAA7]" />
+                  <span>آزمون ۴ گزینه‌ای 🏆</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
