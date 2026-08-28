@@ -100,15 +100,31 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
   }
 ];
 
+const STORAGE_KEY = 'ostad_dana_chat_history_v2';
+
 export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'tutor',
-      text: 'سلام قهرمان ریاضی! 🌟🖐️ من «استاد دانا» هستم، معلم صبور و مهربان ریاضی سوم دبستان. هر سوال، تمرین یا مبحثی که برات سخته بپرس تا با شکل و مثال‌های پیتزایی و شکلاتی با هم حلش کنیم! 😊🍕',
-      timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // ignore
     }
-  ]);
+    return [
+      {
+        id: 'welcome',
+        sender: 'tutor',
+        text: 'سلام قهرمان ریاضی! 🌟🖐️ من «استاد دانا» هستم، معلم صبور و مهربان ریاضی سوم دبستان. هر سوال، تمرین یا مبحثی که برات سخته بپرس تا با شکل و مثال‌های پیتزایی و شکلاتی با هم حلش کنیم! 😊🍕\n\nبیا این کسر سه چهارم رو با هم ببینیم:\n<svg width="140" height="140" viewBox="0 0 120 120" style="margin: 0 auto; display: block;"><circle cx="60" cy="60" r="50" fill="white" stroke="#333" stroke-width="2"/><path d="M60,60 L60,10 A50,50 0 0,1 110,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L110,60 A50,50 0 0,1 60,110 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L60,110 A50,50 0 0,1 10,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L10,60 A50,50 0 0,1 60,10 L60,60 Z" fill="#FFEAA7"/><line x1="60" y1="10" x2="60" y2="110" stroke="#333" stroke-width="1.5"/><line x1="10" y1="60" x2="110" y2="60" stroke="#333" stroke-width="1.5"/></svg>',
+        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+      }
+    ];
+  });
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -129,7 +145,16 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     scrollToBottom('smooth');
   }, [messages, loading]);
 
-  // Voice recognition
+  // Persist messages to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (e) {
+      // ignore
+    }
+  }, [messages]);
+
+  // Voice recognition (Web Speech API)
   const handleVoiceInput = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -180,8 +205,10 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     }
 
     setSpeakingId(id);
+    // Strip out SVG code for text-to-speech
+    const cleanText = text.replace(/<svg[\s\S]*?<\/svg>/g, ' [شکل هندسی یا آموزشی] ');
     speakPersianText(
-      text,
+      cleanText,
       undefined,
       () => setSpeakingId(null),
       () => setSpeakingId(null)
@@ -192,14 +219,18 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     playSound('pop', soundEnabled);
     stopPersianSpeech();
     setSpeakingId(null);
-    setMessages([
+    const initialMsgs: ChatMessage[] = [
       {
         id: Date.now().toString(),
         sender: 'tutor',
-        text: 'گفتگوی جدید شروع شد! 🌟 هر مسئله یا سوالی از کتاب ریاضی سوم داری، بپرس تا با هم یاد بگیریم.',
+        text: 'گفتگوی جدید شروع شد! 🌟 هر مسئله یا سوالی از کتاب ریاضی سوم داری، بپرس تا با شکل و جدول با هم یاد بگیریم.',
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
       }
-    ]);
+    ];
+    setMessages(initialMsgs);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMsgs));
+    } catch (e) {}
   };
 
   const activeCategory = QUESTION_CATEGORIES.find(c => c.id === selectedCatId) || QUESTION_CATEGORIES[0];
@@ -295,6 +326,24 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     }
   };
 
+  // Function to render text and graphical SVG inside chat bubbles
+  const renderMessageBody = (text: string) => {
+    const svgRegex = /(<svg[\s\S]*?<\/svg>)/g;
+    const parts = text.split(svgRegex);
+
+    return parts.map((part, index) => {
+      const trimmed = part.trim();
+      if (trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')) {
+        return (
+          <div key={index} className="my-3 flex justify-center bg-white/90 p-3 rounded-2xl border-2 border-purple-200 shadow-xs overflow-x-auto">
+            <div dangerouslySetInnerHTML={{ __html: trimmed }} />
+          </div>
+        );
+      }
+      return <span key={index} className="whitespace-pre-line">{part}</span>;
+    });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100dvh-130px)] sm:h-[calc(100dvh-140px)] min-h-[480px] max-w-5xl mx-auto space-y-2 dir-rtl">
       {/* Sleek Compact Header Bar */}
@@ -314,7 +363,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
               </span>
             </div>
             <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
-              تدریس مفهومی با شکل، مثال‌های ملموس و بازی
+              تدریس مفهومی با شکل SVG، مثال‌های ملموس و جدول
             </p>
           </div>
         </div>
@@ -336,11 +385,11 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
             {showSuggestions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
 
-          {/* New Chat Button */}
+          {/* New Chat / Clear History Button */}
           <button
             onClick={handleClearChat}
             className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1"
-            title="شروع گفتگوی جدید"
+            title="پاک کردن تاریخچه و شروع گفتگوی جدید"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span className="hidden md:inline">گفتگوی جدید</span>
@@ -403,14 +452,14 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
       {/* Main Chat Messages Viewport (Takes Full Remaining Space) */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto bg-white/90 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 sm:space-y-4 shadow-sm overscroll-contain"
+        className="flex-1 overflow-y-auto bg-white/90 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 sm:space-y-4 shadow-sm overscroll-contain font-sans"
       >
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <div className={`flex items-start gap-2 sm:gap-3 max-w-[96%] sm:max-w-[85%] ${
+            <div className={`flex items-start gap-2 sm:gap-3 max-w-[96%] sm:max-w-[88%] ${
               msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
             }`}>
               {/* Avatar */}
@@ -428,9 +477,9 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                   ? 'bg-gradient-to-br from-[#6C5CE7] to-[#5843E0] text-white rounded-2xl rounded-tr-none shadow-[0_2px_0_0_#4834D4] font-semibold'
                   : 'bg-white text-[#2D3436] border-2 border-[#D8D4FD] rounded-2xl rounded-tl-none font-normal'
               }`}>
-                {/* Body Text */}
-                <div className="whitespace-pre-line dir-rtl leading-relaxed font-sans">
-                  {msg.text}
+                {/* Body Text & SVG Rendering */}
+                <div className="dir-rtl leading-relaxed font-sans">
+                  {renderMessageBody(msg.text)}
                 </div>
 
                 {/* Footer Controls for AI Message */}
@@ -481,7 +530,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                 <span className="w-2 h-2 rounded-full bg-[#A29BFE] animate-ping delay-100"></span>
                 <span className="w-2 h-2 rounded-full bg-[#FF7675] animate-ping delay-200"></span>
               </div>
-              <span className="text-xs font-bold text-[#6C5CE7]">استاد دانا در حال نوشتن پاسخ... 💭</span>
+              <span className="text-xs font-bold text-[#6C5CE7]">استاد دانا در حال فکر کردن و طراحی شکل است... 💭📐</span>
             </div>
           </div>
         )}
@@ -507,7 +556,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                 ? 'bg-rose-500 border-rose-600 text-white animate-pulse' 
                 : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
             }`}
-            title={isListening ? 'در حال شنیدن صدای شما...' : 'صحبت کردن با صدا (میکروفون)'}
+            title={isListening ? 'در حال شنیدن صدای شما (فارسی)...' : 'پرسیدن با صدا (میکروفون)'}
           >
             {isListening ? <MicOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5 text-[#6C5CE7]" />}
           </button>
@@ -517,7 +566,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? 'در حال شنیدن صدای شما...' : 'سؤال، تمرین یا هر مبحثی که می‌خواهی بپرس...'}
+            placeholder={isListening ? 'در حال شنیدن صدای شما... صحبت کنید 🎤' : 'سؤال، تمرین یا هر مبحث ریاضی که می‌خواهی بپرس...'}
             className="flex-1 min-w-0 bg-[#F4F5FA] border border-slate-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#2D3436] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] transition-all dir-rtl min-h-[40px] sm:min-h-[44px]"
             disabled={loading}
           />

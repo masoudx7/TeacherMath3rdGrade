@@ -67,8 +67,11 @@ export function generateFallbackTutorResponse(prompt: string): string {
     return `کسرها خیلی خوشمزه‌ان! 🍕
 تصور کن یک پیتزا رو به ۴ قسمت مساوی برش زدیم:
 - عدد پایین (مخرج): یعنی کل تکه‌ها (۴)
-- عدد بالا (صورت): یعنی تکه‌ای که برداشتی (مثلاً ۱)
-پس ۱/۴ یعنی یک تکه از چهار تکه!
+- عدد بالا (صورت): یعنی تکه‌ای که برداشتی (مثلاً ۳)
+پس ۳/۴ یعنی سه تکه از چهار تکه!
+
+<svg width="130" height="130" viewBox="0 0 120 120" style="margin: 0 auto; display: block;"><circle cx="60" cy="60" r="50" fill="white" stroke="#333" stroke-width="2"/><path d="M60,60 L60,10 A50,50 0 0,1 110,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L110,60 A50,50 0 0,1 60,110 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L60,110 A50,50 0 0,1 10,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L10,60 A50,50 0 0,1 60,10 L60,60 Z" fill="#FFEAA7"/><line x1="60" y1="10" x2="60" y2="110" stroke="#333" stroke-width="1.5"/><line x1="10" y1="60" x2="110" y2="60" stroke="#333" stroke-width="1.5"/></svg>
+
 حالا بگو: کسر ۲/۳ یعنی چند تکه از چند تکه؟ 😋✨`;
   }
 
@@ -77,6 +80,7 @@ export function generateFallbackTutorResponse(prompt: string): string {
 یادت باشه **تومان** همیشه یک صفر کمتر از **ریال** داره!
 برای اینکه ریال رو به تومان تبدیل کنی، فقط یک صفر از آخرش بردار:
 ۵۰,۰۰۰ ریال = ۵,۰۰۰ تومان 💵
+
 حالا بگو ببینم: ۳۰,۰۰۰ ریال چند تومان میشه؟ 🪙🌟`;
   }
 
@@ -84,6 +88,7 @@ export function generateFallbackTutorResponse(prompt: string): string {
     return `الگویابی مثل یک بازی کارآگاهیه! 🔍
 در الگوی ۵، ۱۰، ۱۵، ۲۰ می‌بینیم که اعداد ۵ تا ۵ تا زیاد میشن (+۵).
 پس عدد بعدی میشه: ۲۰ + ۵ = ۲۵!
+
 حالا نوبت توئه: در الگوی ۴، ۸، ۱۲ عدد بعدی چنده؟ 🤔✨`;
   }
 
@@ -91,8 +96,10 @@ export function generateFallbackTutorResponse(prompt: string): string {
     return `ساعت‌خوانی خیلی شیرینه! ⏰
 - عقربه کوچولو: **ساعت** رو نشون میده.
 - عقربه بزرگ: **دقیقه** رو نشون میده (هر شماره ۵ دقیقه است).
-برای ساعت‌های بعدازظهر هم کافیه عدد ساعت رو با ۱۲ جمع کنی (مثلاً ۳ بعدازظهر میشه ۱۵:۰۰).
-حالا بگو: وقتی عقربه کوچک روی ۵ و بزرگ روی ۶ باشه ساعت چنده؟ 🕒✨`;
+
+<svg width="130" height="130" viewBox="0 0 120 120" style="margin: 0 auto; display: block;"><circle cx="60" cy="60" r="50" fill="white" stroke="#6C5CE7" stroke-width="3"/><circle cx="60" cy="60" r="3" fill="#333"/><line x1="60" y1="60" x2="60" y2="30" stroke="#333" stroke-width="3" stroke-linecap="round"/><line x1="60" y1="60" x2="85" y2="60" stroke="#FF6B6B" stroke-width="2" stroke-linecap="round"/><text x="56" y="20" font-size="12" font-weight="bold" fill="#333">۱۲</text><text x="100" y="64" font-size="12" font-weight="bold" fill="#333">۳</text><text x="57" y="108" font-size="12" font-weight="bold" fill="#333">۶</text><text x="14" y="64" font-size="12" font-weight="bold" fill="#333">۹</text></svg>
+
+حالا بگو: وقتی عقربه کوچک روی ۳ و بزرگ روی ۱۲ باشه ساعت چنده؟ 🕒✨`;
   }
 
   if (p.includes('جمع') || p.includes('تفریق') || p.includes('ارزش مکانی') || p.includes('جدول') || p.includes('هزار')) {
