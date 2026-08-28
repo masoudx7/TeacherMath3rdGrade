@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
@@ -101,6 +102,8 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
 ];
 
 const STORAGE_KEY = 'ostad_dana_chat_history_v2';
+const MAX_LOCALSTORAGE_MESSAGES = 100;
+const MAX_HISTORY_MESSAGES = 20;
 
 export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -148,17 +151,31 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   // Persist messages to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      const messagesToSave = messages.length > MAX_LOCALSTORAGE_MESSAGES 
+        ? messages.slice(-MAX_LOCALSTORAGE_MESSAGES)
+        : messages;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messagesToSave));
     } catch (e) {
-      // ignore
+      try {
+        const reducedMessages = messages.slice(-50);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(reducedMessages));
+      } catch (e2) {
+        console.error('خطا در ذخیره تاریخچه:', e2);
+      }
     }
   }, [messages]);
 
   // Voice recognition (Web Speech API)
   const handleVoiceInput = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
     if (!SpeechRecognition) {
-      alert('مرورگر شما از ورودی صوتی پشتیبانی نمی‌کند. لطفاً تایپ کنید.');
+      const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+      if (isFirefox) {
+        alert('🎤 ورودی صوتی در Firefox پشتیبانی نمی‌شود.\n\nلطفاً از Chrome یا Safari استفاده کنید.');
+      } else {
+        alert('🎤 مرورگر شما از ورودی صوتی پشتیبانی نمی‌کند.\n\nلطفاً از Chrome یا Safari استفاده کنید.');
+      }
       return;
     }
 
@@ -172,21 +189,31 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
       recognition.lang = 'fa-IR';
       recognition.continuous = false;
       recognition.interimResults = false;
-
+      
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event.error === 'no-speech') {
+          alert('صدایی شنیده نشد. لطفاً دوباره تلاش کنید.');
+        } else if (event.error === 'audio-capture') {
+          alert('میکروفون یافت نشد. لطفاً میکروفون را بررسی کنید.');
+        } else if (event.error === 'not-allowed') {
+          alert('دسترسی به میکروفون رد شد. لطفاً در تنظیمات مرورگر اجازه دهید.');
+        }
+      };
+      
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         if (transcript) {
           setInput(transcript);
         }
       };
-
+      
       recognition.start();
     } catch (e) {
       setIsListening(false);
+      alert('خطا در راه‌اندازی ورودی صوتی. لطفاً دوباره تلاش کنید.');
     }
   };
 
@@ -272,7 +299,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     setLoading(true);
 
     try {
-      const historyForApi = messages.slice(-8).map(m => ({
+      const historyForApi = messages.slice(-MAX_HISTORY_MESSAGES).map(m => ({
         sender: m.sender,
         text: m.text
       }));
@@ -334,9 +361,12 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     return parts.map((part, index) => {
       const trimmed = part.trim();
       if (trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')) {
+        const cleanSvg = DOMPurify.sanitize(trimmed, { 
+          USE_PROFILES: { svg: true, svgFilters: true } 
+        });
         return (
           <div key={index} className="my-3 flex justify-center bg-white/90 p-3 rounded-2xl border-2 border-purple-200 shadow-xs overflow-x-auto">
-            <div dangerouslySetInnerHTML={{ __html: trimmed }} />
+            <div dangerouslySetInnerHTML={{ __html: cleanSvg }} />
           </div>
         );
       }

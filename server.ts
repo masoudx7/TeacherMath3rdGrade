@@ -3,6 +3,8 @@ import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
 import { generateFallbackTutorResponse } from './src/utils/tutorFallback';
 import { SAMPLE_QUIZZES } from './src/data/curriculum';
+import { checkRateLimit } from './middleware/rateLimit';
+import { saveMistake, getMistakes, resolveMistake } from './src/utils/mistakeStore';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
@@ -246,6 +248,17 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
   const { prompt, history } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: 'متن سوال الزامی است.' });
+  }
+
+  const userId = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
+  if (userId) {
+    const rateLimit = await checkRateLimit(userId, 50);
+    if (!rateLimit.success) {
+      const resetTime = new Date(rateLimit.resetTime).toLocaleTimeString('fa-IR');
+      return res.status(429).json({ 
+        error: `تعداد سوالات شما تمام شده. لطفاً بعد از ${resetTime} دوباره تلاش کنید.` 
+      });
+    }
   }
 
   const contents: any[] = [];
@@ -499,36 +512,42 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
   }
 });
 
-// Mistake Tracker Store (per user)
-const userMistakesStore = new Map<string, any[]>();
-
-app.get('/api/user/mistakes/:userId', (req, res) => {
-  const { userId } = req.params;
-  const mistakes = userMistakesStore.get(userId) || [];
-  res.json({ mistakes });
-});
-
-app.post('/api/user/mistakes', (req, res) => {
-  const { userId, mistake } = req.body;
-  if (!userId || !mistake) {
-    return res.status(400).json({ error: 'اطلاعات اشتباه ناقص است.' });
+app.get('/api/user/mistakes/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const mistakes = await getMistakes(userId);
+    res.json({ mistakes });
+  } catch (error) {
+    res.status(500).json({ error: 'خطا در دریافت اشتباهات' });
   }
-  const current = userMistakesStore.get(userId) || [];
-  const updated = [mistake, ...current.filter((m: any) => m.id !== mistake.id)].slice(0, 50);
-  userMistakesStore.set(userId, updated);
-  res.json({ success: true, count: updated.length });
 });
 
-app.post('/api/user/mistakes/resolve', (req, res) => {
-  const { userId, mistakeId } = req.body;
-  if (!userId || !mistakeId) {
-    return res.status(400).json({ error: 'شناسه کاربر و اشتباه الزامی است.' });
+app.post('/api/user/mistakes', async (req, res) => {
+  try {
+    const { userId, mistake } = req.body;
+    if (!userId || !mistake) {
+      return res.status(400).json({ error: 'اطلاعات اشتباه ناقص است.' });
+    }
+    const saved = await saveMistake(userId, mistake);
+    res.json({ success: true, mistake: saved });
+  } catch (error) {
+    res.status(500).json({ error: 'خطا در ذخیره اشتباه' });
   }
-  const current = userMistakesStore.get(userId) || [];
-  const updated = current.map((m: any) => m.id === mistakeId ? { ...m, resolved: true } : m);
-  userMistakesStore.set(userId, updated);
-  res.json({ success: true, resolvedCount: updated.filter(m => m.resolved).length });
 });
+
+app.post('/api/user/mistakes/resolve', async (req, res) => {
+  try {
+    const { userId, mistakeId } = req.body;
+    if (!userId || !mistakeId) {
+      return res.status(400).json({ error: 'شناسه کاربر و اشتباه الزامی است.' });
+    }
+    const resolvedCount = await resolveMistake(userId, mistakeId);
+    res.json({ success: true, resolvedCount });
+  } catch (error) {
+    res.status(500).json({ error: 'خطا در به‌روزرسانی اشتباه' });
+  }
+});
+
 
 
 // Shared Leaderboard Store
