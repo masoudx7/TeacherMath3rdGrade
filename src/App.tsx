@@ -13,6 +13,7 @@ import { SuccessCelebrationModal, CelebrationData } from './components/SuccessCe
 import { AIDailyTip } from './components/AIDailyTip';
 import { MistakeNotebook } from './components/MistakeNotebook';
 import { ParentReport } from './components/ParentReport';
+import { MyQuestionsView } from './components/MyQuestionsView';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
 
@@ -375,6 +376,13 @@ export default function App() {
 
         {activeTab === 'parent_report' && (
           <ParentReport
+            profile={profile}
+            soundEnabled={soundEnabled}
+          />
+        )}
+
+        {activeTab === 'my_questions' && (
+          <MyQuestionsView
             profile={profile}
             soundEnabled={soundEnabled}
           />

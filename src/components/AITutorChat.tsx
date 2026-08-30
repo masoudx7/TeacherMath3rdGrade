@@ -4,6 +4,7 @@ import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { generateFallbackTutorResponse } from '../utils/tutorFallback';
+import { saveQuestionLocally, syncQuestionsToCloud } from '../utils/questionManager';
 import { 
   Send, 
   User, 
@@ -253,6 +254,34 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   const [quizUserAnswer, setQuizUserAnswer] = useState('');
   const [quizAnswersList, setQuizAnswersList] = useState<{ question: string; answer: string }[]>([]);
   const [quizStep, setQuizStep] = useState<'selecting' | 'active' | 'results'>('selecting');
+  const [saveNotification, setSaveNotification] = useState<string | null>(null);
+
+  const handleSaveQuestion = async (text: string) => {
+    playSound('click', soundEnabled);
+    const qId = 'ai_q_' + Date.now();
+    const newItem = {
+      id: qId,
+      text: text.slice(0, 150),
+      difficulty: 'medium' as const,
+      tags: ['هوش مصنوعی', 'گفتگو']
+    };
+    try {
+      await saveQuestionLocally(newItem);
+      const savedProf = localStorage.getItem('math_tutor_3rd_profile_v3');
+      if (savedProf) {
+        const parsed = JSON.parse(savedProf);
+        if (parsed.isLoggedIn && parsed.phoneNumber) {
+          await syncQuestionsToCloud(parsed.phoneNumber);
+        }
+      }
+      setSaveNotification('سوال با موفقیت در بانک سوالات شما ذخیره شد! ✅');
+      setTimeout(() => setSaveNotification(null), 3500);
+    } catch (e) {
+      console.error(e);
+      setSaveNotification('خطا در ذخیره سوال.');
+      setTimeout(() => setSaveNotification(null), 3000);
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -603,6 +632,12 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
         </div>
       </div>
 
+      {saveNotification && (
+        <div className="bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-2xl shadow-md text-center animate-in fade-in flex items-center justify-center gap-2">
+          <span>{saveNotification}</span>
+        </div>
+      )}
+
       {/* Collapsible Slim Suggestions Bar */}
       {showSuggestions && (
         <div className="bg-white/95 border-2 border-amber-200/80 rounded-2xl p-2 shadow-2xs space-y-1.5 shrink-0 transition-all animate-in fade-in duration-150">
@@ -694,6 +729,16 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                     <span className="font-bold text-slate-400">{msg.timestamp}</span>
 
                     <div className="flex items-center gap-1">
+                      {/* Save Question Button */}
+                      <button
+                        onClick={() => handleSaveQuestion(msg.text)}
+                        className="px-2 py-1 rounded-lg font-bold hover:bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all cursor-pointer flex items-center gap-1 text-[10px]"
+                        title="ذخیره این سوال در بانک سوالات من"
+                      >
+                        <span>💾</span>
+                        <span>ذخیره سوال</span>
+                      </button>
+
                       {/* Audio Read-aloud button */}
                       <button
                         onClick={() => handleSpeakText(msg.id, msg.text)}

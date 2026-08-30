@@ -44,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const tabs = [
     { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
+    { id: 'my_questions', label: 'سوالات من', shortLabel: 'سوالات', icon: BookMarked, badge: 'آفلاین/آنلاین' },
     { id: 'scan', label: 'اسکن مسئله', shortLabel: 'اسکن', icon: Camera, badge: 'عکس' },
     { id: 'games', label: 'تمرین و آزمون', shortLabel: 'تمرین', icon: Gamepad2 },
     { id: 'mistakes', label: 'دفترچه اشتباهات', shortLabel: 'اشتباهات', icon: BookMarked, badge: 'رفع اشکال' },
