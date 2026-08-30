@@ -43,60 +43,21 @@ const MAX_LOCALSTORAGE_MESSAGES = 100;
 const MAX_HISTORY_MESSAGES = 20;
 
 export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
-  const [questionCategories, setQuestionCategories] = useState<QuestionCategory[]>([]);
-  const [totalQuestions, setTotalQuestions] = useState<number>(0);
+  const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
+  const [totalQ, setTotalQ] = useState(0);
 
   useEffect(() => {
-    const loadQuestions = async () => {
-      const savedProf = localStorage.getItem('math_tutor_3rd_profile_v3');
-      let phone = '';
-      if (savedProf) {
-        try {
-          const parsed = JSON.parse(savedProf);
-          phone = parsed.phoneNumber;
-        } catch (e) {}
-      }
-      const data = await getAllQuestions(phone);
-      // تبدیل فرمت base questions به فرمت QUESTION_CATEGORIES
-      const allQuestionsList: string[] = [];
-      data.base.forEach((c: any) => {
-        c.questions?.forEach((q: any) => {
-          allQuestionsList.push(q.text);
-        });
-      });
-      data.aiGenerated?.forEach((q: any) => {
-        allQuestionsList.push(q.text);
-      });
-
-      const cats: QuestionCategory[] = [
-        {
-          id: 'all',
-          name: 'همه مباحث',
-          icon: '🌟',
-          questions: allQuestionsList
-        },
-        ...data.base.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          icon: c.icon,
-          questions: (c.questions || []).map((q: any) => q.text)
-        }))
-      ];
-      
-      // اضافه کردن دسته بندی "سوالات AI من" اگر وجود داشته باشد
+    getAllQuestions().then(data => {
+      const cats = data.base.map((c: any) => ({
+        id: c.id, name: c.name, icon: c.icon,
+        questions: c.questions.map((q: any) => q.text)
+      }));
       if (data.aiGenerated.length > 0) {
-        cats.unshift({
-          id: 'my_ai_questions',
-          name: `سوالات من (${data.aiGenerated.length})`,
-          icon: '💾',
-          questions: data.aiGenerated.map((q: any) => q.text)
-        });
+        cats.unshift({ id: 'my_ai', name: `سوالات من (${data.aiGenerated.length})`, icon: '💾', questions: data.aiGenerated.map((q: any) => q.text) });
       }
-      
-      setQuestionCategories(cats);
-      setTotalQuestions(data.total);
-    };
-    loadQuestions();
+      setDynamicCategories(cats);
+      setTotalQ(data.total);
+    });
   }, []);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -290,7 +251,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     } catch (e) {}
   };
 
-  const activeCategory = questionCategories.find(c => c.id === selectedCatId) || questionCategories[0] || { id: 'all', name: 'همه مباحث', icon: '🌟', questions: [] };
+  const activeCategory = dynamicCategories.find(c => c.id === selectedCatId) || dynamicCategories[0] || { id: 'all', name: 'همه مباحث', icon: '🌟', questions: [] };
   
   const getDisplayedQuestions = () => {
     const list = activeCategory.questions;
@@ -385,7 +346,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
   const handleStartQuiz = (catId: string) => {
     playSound('click', soundEnabled);
-    const cat = questionCategories.find(c => c.id === catId) || questionCategories[0];
+    const cat = dynamicCategories.find(c => c.id === catId) || dynamicCategories[0];
     if (!cat || !cat.questions || cat.questions.length === 0) return;
     const shuffled = [...cat.questions].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 5);
@@ -448,8 +409,8 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
               <h2 className="font-black text-[#2D3436] text-xs sm:text-base truncate">
                 استاد دانا (معلم هوشمند ریاضی)
               </h2>
-              <span className="text-[9px] sm:text-[10px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.2 rounded-full font-bold">
-                {totalQuestions} سوال 📚
+              <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-full font-bold">
+                {totalQ} سوال 📚
               </span>
               <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
@@ -468,7 +429,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           <button
             onClick={() => {
               playSound('pop', soundEnabled);
-              const allQs = questionCategories[0]?.questions || ['جدول ضرب ۶ را با مثال یاد بده ✖️'];
+              const allQs = dynamicCategories[0]?.questions || ['جدول ضرب ۶ را با مثال یاد بده ✖️'];
               const randomQ = allQs[Math.floor(Math.random() * allQs.length)];
               handleSendMessage(randomQ);
             }}
@@ -532,7 +493,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           {/* Categories Horizontal Scroll */}
           <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              {questionCategories.map((cat) => (
+              {dynamicCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => {
@@ -611,24 +572,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                   {renderMessageBody(msg.text)}
                 </div>
 
-                {msg.sender === 'tutor' && (
-                  <button
-                    onClick={async () => {
-                      const newQ = {
-                        id: `ai_${Date.now()}`,
-                        text: msg.suggestedQuestion || msg.text.substring(0, 80),
-                        difficulty: 'medium' as const,
-                        tags: ['ai-generated'],
-                        isAiGenerated: true
-                      };
-                      await saveQuestionLocally(newQ);
-                      playSound('star', soundEnabled);
-                    }}
-                    className="mt-2 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-300 hover:bg-emerald-200 transition-all cursor-pointer block"
-                  >
-                    💾 ذخیره این سوال
-                  </button>
-                )}
+                {msg.sender === 'tutor' && <button onClick={() => saveQuestionLocally({ id: `ai_${Date.now()}`, text: msg.text.substring(0,80), difficulty: 'medium', tags: ['ai'], isAiGenerated: true })} className="mt-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-300">💾 ذخیره سوال</button>}
 
                 {/* Footer Controls for AI Message */}
                 {msg.sender === 'tutor' && (
@@ -764,7 +708,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                   لطفاً مبحث مورد نظر خود را برای آزمون ۵ سوالی انتخاب کنید:
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {questionCategories.map(cat => (
+                  {dynamicCategories.map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => handleStartQuiz(cat.id)}
