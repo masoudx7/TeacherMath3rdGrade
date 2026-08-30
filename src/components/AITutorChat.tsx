@@ -448,6 +448,9 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
               <h2 className="font-black text-[#2D3436] text-xs sm:text-base truncate">
                 استاد دانا (معلم هوشمند ریاضی)
               </h2>
+              <span className="text-[9px] sm:text-[10px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.2 rounded-full font-bold">
+                {totalQuestions} سوال 📚
+              </span>
               <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
                 آنلاین
@@ -607,6 +610,25 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                 <div className="dir-rtl leading-relaxed font-sans">
                   {renderMessageBody(msg.text)}
                 </div>
+
+                {msg.sender === 'tutor' && (
+                  <button
+                    onClick={async () => {
+                      const newQ = {
+                        id: `ai_${Date.now()}`,
+                        text: msg.suggestedQuestion || msg.text.substring(0, 80),
+                        difficulty: 'medium' as const,
+                        tags: ['ai-generated'],
+                        isAiGenerated: true
+                      };
+                      await saveQuestionLocally(newQ);
+                      playSound('star', soundEnabled);
+                    }}
+                    className="mt-2 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-300 hover:bg-emerald-200 transition-all cursor-pointer block"
+                  >
+                    💾 ذخیره این سوال
+                  </button>
+                )}
 
                 {/* Footer Controls for AI Message */}
                 {msg.sender === 'tutor' && (
