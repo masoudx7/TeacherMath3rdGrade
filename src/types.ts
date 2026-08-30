@@ -31,6 +31,8 @@ export interface ChatMessage {
   stepByStep?: string[];
   practiceQuestion?: QuizQuestion;
   audioText?: string;
+  containsNewQuestion?: boolean;
+  suggestedQuestion?: string;
 }
 
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard';

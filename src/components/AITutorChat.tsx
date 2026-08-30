@@ -4,7 +4,7 @@ import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { generateFallbackTutorResponse } from '../utils/tutorFallback';
-import { saveQuestionLocally, syncQuestionsToCloud } from '../utils/questionManager';
+import { getAllQuestions, saveQuestionLocally, syncQuestionsToCloud } from '../utils/questionManager';
 import { 
   Send, 
   User, 
@@ -38,183 +38,66 @@ interface QuestionCategory {
   questions: string[];
 }
 
-const QUESTION_CATEGORIES: QuestionCategory[] = [
-  {
-    id: 'all',
-    name: 'همه مباحث',
-    icon: '🌟',
-    questions: [
-      'جدول ضرب ۶ را با مثال یاد بده ✖️',
-      'چطور محیط و مساحت مستطیل رو حساب کنم؟ 📐',
-      'کسر سه چهارم یعنی چی؟ 🍕',
-      'تفاوت ریال و تومان چیه؟ 💰',
-      'الگوی ۵، ۱۰، ۱۵ چجوری جلو میره؟ 🔢',
-      'جمع ۴ رقمی با جدول ارزش مکانی چطوری انجام میشه؟ 🧮',
-      'ساعت ۱۷:۳۰ دقیقه یعنی ساعت چند؟ ⏰',
-      'تقسیم ۱۲ بر ۳ رو با شکل نشون بده ➗',
-      'مساحت مربع ۵ سانتیمتری چقدر میشه؟ ⬛',
-      'عدد ۳۴۵۶ رو باز کن (هزارتایی، صدتایی، دهتایی، یکی) 🔢',
-      'کسر یک دوم بزرگتره یا یک سوم؟ 🍕',
-      'محیط مثلث با اضلاع ۳، ۴، ۵ چقدره؟ 📐',
-      '۲۵۰۰ تومان چند ریاله؟ 💰',
-      'الگوی ۲، ۶، ۱۸، ۵۴ چه قانونی داره؟ 🔢',
-      'ساعت ۸ و ربع یعنی چند دقیقه گذشته از ۸؟ ⏰'
-    ]
-  },
-  {
-    id: 'patterns',
-    name: 'الگوها',
-    icon: '🔢',
-    questions: [
-      'الگوی ۵، ۱۰، ۱۵، ۲۰ ادامه بده 🔢',
-      'الگوی ۲، ۶، ۱۸، ۵۴ چه قانونی داره؟ 🔄',
-      'الگوی هندسی مربع، مثلث، مربع، ... بعدی چیه؟ 🔷',
-      'الگوی عددی ۱۰۰، ۹۰، ۸۰، ... ادامه بده 📉',
-      'الگوی شکلی دایره، دایره، مثلث، دایره، دایره، ... بعدی چیه؟ ⭕',
-      'قانون الگوی ۳، ۷، ۱۱، ۱۵ چیه؟ ➕',
-      'الگوی ۱، ۱، ۲، ۳، ۵، ۸ ادامه بده (فیبوناچی ساده) 🌀',
-      'الگوی ساعت ۱:۰۰، ۱:۳۰، ۲:۰۰، ... بعدی چنده؟ ⏰',
-      'الگوی پول ۱۰۰، ۲۰۰، ۳۰۰ تومان ادامه بده 💰',
-      'الگوی معکوس ۲۰، ۱۸، ۱۶، ... ادامه بده 🔙'
-    ]
-  },
-  {
-    id: 'four_digit',
-    name: 'اعداد ۴ رقمی',
-    icon: '🔢',
-    questions: [
-      'عدد ۳۴۵۶ رو باز کن (هزارتایی، صدتایی، دهتایی، یکی) 🧮',
-      'بزرگترین عدد ۴ رقمی بدون تکرار ارقام چیه؟ 🏆',
-      'کوچکترین عدد ۴ رقمی چیه؟ 🔽',
-      'جمع ۲۳۴۵ + ۱۲۳۴ با جدول ارزش مکانی 📊',
-      'تفریق ۵۶۷۸ - ۲۳۴۵ چطور انجام میشه؟ ➖',
-      'عدد ۴۰۵۰ چند تا هزارتایی و دهتایی داره؟ 🔍',
-      'مقایسه ۳۴۵۶ و ۳۵۴۶: کدوم بزرگتره؟ ⚖️',
-      'تقریب ۴۵۶۷ به نزدیکترین هزارتایی 🎯',
-      'تقریب ۳۲۱۴ به نزدیکترین صدتایی 🎯',
-      'عدد ۷۰۸۹ رو به حروف بنویس ✍️',
-      'جمع ۱۲۳۴ + ۵۶۷۸ با انتقال (رقم نقلی) 🧮',
-      'تفریق ۸۰۰۰ - ۳۴۵۶ با قرض گرفتن 📝'
-    ]
-  },
-  {
-    id: 'fractions',
-    name: 'کسر',
-    icon: '🍕',
-    questions: [
-      'کسر سه چهارم یعنی چی؟ با شکل نشون بده 🍕',
-      'کسر دو سوم بزرگتره یا دو پنجم؟ ⚖️',
-      'کسرهای مساوی یعنی چی؟ با مثال 🔄',
-      'جمع یک سوم + یک سوم چقدر میشه؟ ➕',
-      'یک دوم پیتزا یعنی چند قسمت از ۴ قسمت؟ 🍕',
-      'کسر سه هشتم رو روی شکل نشون بده 🎨',
-      'کسر بزرگتر از واحد یعنی چی؟ 📏',
-      'تبدیل کسر سه دوم به عدد مخلوط 🔄',
-      'مقایسه یک چهارم و یک سوم: کدوم بزرگتره؟ 🤔',
-      'سه پنجم ۲۰ تا شکلات چند تاست؟ 🍫',
-      'کسر دو ششم رو ساده کن ✂️',
-      'جمع یک چهارم + دو چهارم 🍕'
-    ]
-  },
-  {
-    id: 'multiplication',
-    name: 'ضرب و تقسیم',
-    icon: '✖️',
-    questions: [
-      'جدول ضرب ۷ رو با تکنیک یاد بده ✖️',
-      'جدول ضرب ۸ رو چطور زود حفظ بشم؟ 🧠',
-      'خاصیت جابجایی در ضرب یعنی چی؟ 🔄',
-      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀',
-      'تقسیم ۲۰ بر ۴ یعنی چی؟ با شکل ➗',
-      'فرق ضرب و جمع تکراری چیه؟ ➕',
-      'باقیمانده تقسیم ۱۷ بر ۳ چنده؟ 📝',
-      'ضرب ۶ × ۷ رو با جمع تکراری نشون بده ➕',
-      'تقسیم ۳۵ بر ۵ با شکل نشون بده 🎨',
-      'خاصیت صفر در ضرب یعنی چی؟ 0️⃣',
-      'ضرب ۹ × ۸ با تکنیک انگشتان 🖐️',
-      'تقسیم ۴۸ بر ۶ چطور حل میشه؟ 🧮',
-      'مسئله: ۴ بسته مداد ۶ تایی، چند مداد؟ ✏️',
-      'مسئله: ۲۴ شکلات بین ۳ نفر تقسیم کن 🍫'
-    ]
-  },
-  {
-    id: 'geometry',
-    name: 'هندسه',
-    icon: '📐',
-    questions: [
-      'محیط مستطیل با طول ۵ و عرض ۳ چقدره؟ 📏',
-      'مساحت مستطیل با طول ۶ و عرض ۴ چقدره؟ 📐',
-      'تفاوت محیط و مساحت چیه؟ 🖼️',
-      'محیط مثلث متساویالاضلاع با ضلع ۶ چقدره؟ 🔺',
-      'مساحت مربع با ضلع ۵ سانتیمتر 🟧',
-      'زاویه تند و باز چه فرقی دارن؟ 📐',
-      'زاویه راست یعنی چند درجه؟ 📏',
-      'تعداد گوشههای پنجضلعی چندتاست؟ ⬠',
-      'قطر دایره یعنی چی؟ ⭕',
-      'محیط مربع با ضلع ۸ چقدره؟ 🟦',
-      'مساحت مثلث با قاعده ۶ و ارتفاع ۴ 🔺',
-      'تفاوت مربع و مستطیل چیه؟ 🤔',
-      'خط تقارن مربع چندتاست؟ ✂️'
-    ]
-  },
-  {
-    id: 'money',
-    name: 'پول و ریال/تومان',
-    icon: '💰',
-    questions: [
-      'تفاوت ریال و تومان چیه؟ 💰',
-      '۲۵۰۰ تومان چند ریاله؟ 🔄',
-      '۵۰۰۰ ریال چند تومان میشه؟ 💵',
-      'جمع ۱۵۰۰ تومان + ۲۵۰۰ تومان 💰',
-      'اگر ۵۰۰۰ تومان داشته باشم و ۱۸۰۰ تومان خرج کنم 💸',
-      'قیمت ۳ بستنی ۱۲۰۰ تومانی چقدره؟ 🍦',
-      'تبدیل ۱۰۰۰۰ ریال به تومان 🔄',
-      'مقایسه ۳۵۰۰ تومان و ۳۰۰۰۰ ریال ⚖️',
-      'باقیمانده پول بعد از خرید ۲ دفتر ۲۰۰۰ تومانی 📒',
-      'قیمت نیم کیلو سیب اگر هر کیلو ۸۰۰۰ تومان باشه 🍎'
-    ]
-  },
-  {
-    id: 'time',
-    name: 'ساعت و زمان',
-    icon: '⏰',
-    questions: [
-      'ساعت ۱۵:۴۵ به وقت بعدازظهر چنده؟ ⏰',
-      'نیم ساعت و ربع ساعت چند دقیقه میشه؟ ⏱️',
-      'ساعت ۱۷:۳۰ یعنی ساعت چند عصر؟ 🌅',
-      'از ساعت ۸ تا ۱۱ چند ساعت گذشته؟ ⏳',
-      '۲ ساعت و ۱۵ دقیقه چند دقیقه میشه؟ 🔢',
-      'ساعت ۲۰:۰۰ یعنی ساعت چند شب؟ 🌙',
-      'اگر الان ساعت ۳ باشه، ۴۵ دقیقه دیگه ساعت چنده؟ ⏰',
-      'تبدیل ۹۰ دقیقه به ساعت و دقیقه 🔄',
-      'مدت زمان فیلم از ۱۶:۰۰ تا ۱۷:۳۰ 🎬',
-      'ساعت ۱۲:۱۵ ظهر یعنی چی؟ ☀️'
-    ]
-  },
-  {
-    id: 'statistics',
-    name: 'آمار و احتمال',
-    icon: '📊',
-    questions: [
-      'شانس آمدن رنگ قرمز در چرخنده ۴ رنگه چقدره؟ 🎡',
-      'میانگین نمرات ۱۸، ۱۶، ۲۰ چقدره؟ 📊',
-      'در نمودار ستونی، بلندترین ستون یعنی چی؟ 📈',
-      'احتمال آمدن عدد زوج در تاس 🎲',
-      'بیشترین تکرار در دادههای ۳، ۵، ۳، ۷، ۳ چیه؟ 🔢',
-      'جدول فراوانی نمرات کلاس رو توضیح بده 📋',
-      'شانس آمدن شیر یا خط در سکه 🪙',
-      'میانگین قد ۳ نفر: ۱۲۰، ۱۳۰، ۱۴۰ سانتیمتر 📏',
-      'نمودار تصویری یعنی چی؟ با مثال 🖼️',
-      'احتمال انتخاب توپ قرمز از کیسه با ۳ قرمز و ۲ آبی 🔴'
-    ]
-  }
-];
-
 const STORAGE_KEY = 'ostad_dana_chat_history_v2';
 const MAX_LOCALSTORAGE_MESSAGES = 100;
 const MAX_HISTORY_MESSAGES = 20;
 
 export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
+  const [questionCategories, setQuestionCategories] = useState<QuestionCategory[]>([]);
+  const [totalQuestions, setTotalQuestions] = useState<number>(0);
+
+  useEffect(() => {
+    const loadQuestions = async () => {
+      const savedProf = localStorage.getItem('math_tutor_3rd_profile_v3');
+      let phone = '';
+      if (savedProf) {
+        try {
+          const parsed = JSON.parse(savedProf);
+          phone = parsed.phoneNumber;
+        } catch (e) {}
+      }
+      const data = await getAllQuestions(phone);
+      // تبدیل فرمت base questions به فرمت QUESTION_CATEGORIES
+      const allQuestionsList: string[] = [];
+      data.base.forEach((c: any) => {
+        c.questions?.forEach((q: any) => {
+          allQuestionsList.push(q.text);
+        });
+      });
+      data.aiGenerated?.forEach((q: any) => {
+        allQuestionsList.push(q.text);
+      });
+
+      const cats: QuestionCategory[] = [
+        {
+          id: 'all',
+          name: 'همه مباحث',
+          icon: '🌟',
+          questions: allQuestionsList
+        },
+        ...data.base.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon,
+          questions: (c.questions || []).map((q: any) => q.text)
+        }))
+      ];
+      
+      // اضافه کردن دسته بندی "سوالات AI من" اگر وجود داشته باشد
+      if (data.aiGenerated.length > 0) {
+        cats.unshift({
+          id: 'my_ai_questions',
+          name: `سوالات من (${data.aiGenerated.length})`,
+          icon: '💾',
+          questions: data.aiGenerated.map((q: any) => q.text)
+        });
+      }
+      
+      setQuestionCategories(cats);
+      setTotalQuestions(data.total);
+    };
+    loadQuestions();
+  }, []);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -363,6 +246,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     }
   };
 
+
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -406,7 +290,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     } catch (e) {}
   };
 
-  const activeCategory = QUESTION_CATEGORIES.find(c => c.id === selectedCatId) || QUESTION_CATEGORIES[0];
+  const activeCategory = questionCategories.find(c => c.id === selectedCatId) || questionCategories[0] || { id: 'all', name: 'همه مباحث', icon: '🌟', questions: [] };
   
   const getDisplayedQuestions = () => {
     const list = activeCategory.questions;
@@ -501,7 +385,8 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
   const handleStartQuiz = (catId: string) => {
     playSound('click', soundEnabled);
-    const cat = QUESTION_CATEGORIES.find(c => c.id === catId) || QUESTION_CATEGORIES[0];
+    const cat = questionCategories.find(c => c.id === catId) || questionCategories[0];
+    if (!cat || !cat.questions || cat.questions.length === 0) return;
     const shuffled = [...cat.questions].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 5);
     setQuizCategory(catId);
@@ -580,7 +465,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           <button
             onClick={() => {
               playSound('pop', soundEnabled);
-              const allQs = QUESTION_CATEGORIES[0].questions;
+              const allQs = questionCategories[0]?.questions || ['جدول ضرب ۶ را با مثال یاد بده ✖️'];
               const randomQ = allQs[Math.floor(Math.random() * allQs.length)];
               handleSendMessage(randomQ);
             }}
@@ -644,7 +529,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           {/* Categories Horizontal Scroll */}
           <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              {QUESTION_CATEGORIES.map((cat) => (
+              {questionCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => {
@@ -857,7 +742,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
                   لطفاً مبحث مورد نظر خود را برای آزمون ۵ سوالی انتخاب کنید:
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {QUESTION_CATEGORIES.map(cat => (
+                  {questionCategories.map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => handleStartQuiz(cat.id)}
