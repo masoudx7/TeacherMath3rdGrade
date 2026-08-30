@@ -20,7 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Smile
+  Smile,
+  X
 } from 'lucide-react';
 
 interface AITutorChatProps {
@@ -50,7 +51,68 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
       'جمع ۴ رقمی با جدول ارزش مکانی چطوری انجام میشه؟ 🧮',
       'ساعت ۱۷:۳۰ دقیقه یعنی ساعت چند؟ ⏰',
       'تقسیم ۱۲ بر ۳ رو با شکل نشون بده ➗',
-      'مساحت مربع ۵ سانتی‌متری چقدر میشه؟ ⬛'
+      'مساحت مربع ۵ سانتیمتری چقدر میشه؟ ⬛',
+      'عدد ۳۴۵۶ رو باز کن (هزارتایی، صدتایی، دهتایی، یکی) 🔢',
+      'کسر یک دوم بزرگتره یا یک سوم؟ 🍕',
+      'محیط مثلث با اضلاع ۳، ۴، ۵ چقدره؟ 📐',
+      '۲۵۰۰ تومان چند ریاله؟ 💰',
+      'الگوی ۲، ۶، ۱۸، ۵۴ چه قانونی داره؟ 🔢',
+      'ساعت ۸ و ربع یعنی چند دقیقه گذشته از ۸؟ ⏰'
+    ]
+  },
+  {
+    id: 'patterns',
+    name: 'الگوها',
+    icon: '🔢',
+    questions: [
+      'الگوی ۵، ۱۰، ۱۵، ۲۰ ادامه بده 🔢',
+      'الگوی ۲، ۶، ۱۸، ۵۴ چه قانونی داره؟ 🔄',
+      'الگوی هندسی مربع، مثلث، مربع، ... بعدی چیه؟ 🔷',
+      'الگوی عددی ۱۰۰، ۹۰، ۸۰، ... ادامه بده 📉',
+      'الگوی شکلی دایره، دایره، مثلث، دایره، دایره، ... بعدی چیه؟ ⭕',
+      'قانون الگوی ۳، ۷، ۱۱، ۱۵ چیه؟ ➕',
+      'الگوی ۱، ۱، ۲، ۳، ۵، ۸ ادامه بده (فیبوناچی ساده) 🌀',
+      'الگوی ساعت ۱:۰۰، ۱:۳۰، ۲:۰۰، ... بعدی چنده؟ ⏰',
+      'الگوی پول ۱۰۰، ۲۰۰، ۳۰۰ تومان ادامه بده 💰',
+      'الگوی معکوس ۲۰، ۱۸، ۱۶، ... ادامه بده 🔙'
+    ]
+  },
+  {
+    id: 'four_digit',
+    name: 'اعداد ۴ رقمی',
+    icon: '🔢',
+    questions: [
+      'عدد ۳۴۵۶ رو باز کن (هزارتایی، صدتایی، دهتایی، یکی) 🧮',
+      'بزرگترین عدد ۴ رقمی بدون تکرار ارقام چیه؟ 🏆',
+      'کوچکترین عدد ۴ رقمی چیه؟ 🔽',
+      'جمع ۲۳۴۵ + ۱۲۳۴ با جدول ارزش مکانی 📊',
+      'تفریق ۵۶۷۸ - ۲۳۴۵ چطور انجام میشه؟ ➖',
+      'عدد ۴۰۵۰ چند تا هزارتایی و دهتایی داره؟ 🔍',
+      'مقایسه ۳۴۵۶ و ۳۵۴۶: کدوم بزرگتره؟ ⚖️',
+      'تقریب ۴۵۶۷ به نزدیکترین هزارتایی 🎯',
+      'تقریب ۳۲۱۴ به نزدیکترین صدتایی 🎯',
+      'عدد ۷۰۸۹ رو به حروف بنویس ✍️',
+      'جمع ۱۲۳۴ + ۵۶۷۸ با انتقال (رقم نقلی) 🧮',
+      'تفریق ۸۰۰۰ - ۳۴۵۶ با قرض گرفتن 📝'
+    ]
+  },
+  {
+    id: 'fractions',
+    name: 'کسر',
+    icon: '🍕',
+    questions: [
+      'کسر سه چهارم یعنی چی؟ با شکل نشون بده 🍕',
+      'کسر دو سوم بزرگتره یا دو پنجم؟ ⚖️',
+      'کسرهای مساوی یعنی چی؟ با مثال 🔄',
+      'جمع یک سوم + یک سوم چقدر میشه؟ ➕',
+      'یک دوم پیتزا یعنی چند قسمت از ۴ قسمت؟ 🍕',
+      'کسر سه هشتم رو روی شکل نشون بده 🎨',
+      'کسر بزرگتر از واحد یعنی چی؟ 📏',
+      'تبدیل کسر سه دوم به عدد مخلوط 🔄',
+      'مقایسه یک چهارم و یک سوم: کدوم بزرگتره؟ 🤔',
+      'سه پنجم ۲۰ تا شکلات چند تاست؟ 🍫',
+      'کسر دو ششم رو ساده کن ✂️',
+      'جمع یک چهارم + دو چهارم 🍕'
     ]
   },
   {
@@ -58,45 +120,91 @@ const QUESTION_CATEGORIES: QuestionCategory[] = [
     name: 'ضرب و تقسیم',
     icon: '✖️',
     questions: [
-      'جدول ضرب ۷ و ۸ رو چطور زود حفظ بشم؟ ✖️',
+      'جدول ضرب ۷ رو با تکنیک یاد بده ✖️',
+      'جدول ضرب ۸ رو چطور زود حفظ بشم؟ 🧠',
       'خاصیت جابجایی در ضرب یعنی چی؟ 🔄',
-      'تقسیم ۲۰ بر ۴ یعنی چی؟ ➗',
+      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀',
+      'تقسیم ۲۰ بر ۴ یعنی چی؟ با شکل ➗',
       'فرق ضرب و جمع تکراری چیه؟ ➕',
-      'ضرب در ۱۰ و ۱۰۰ چطور سریع انجام میشه؟ 🚀'
+      'باقیمانده تقسیم ۱۷ بر ۳ چنده؟ 📝',
+      'ضرب ۶ × ۷ رو با جمع تکراری نشون بده ➕',
+      'تقسیم ۳۵ بر ۵ با شکل نشون بده 🎨',
+      'خاصیت صفر در ضرب یعنی چی؟ 0️⃣',
+      'ضرب ۹ × ۸ با تکنیک انگشتان 🖐️',
+      'تقسیم ۴۸ بر ۶ چطور حل میشه؟ 🧮',
+      'مسئله: ۴ بسته مداد ۶ تایی، چند مداد؟ ✏️',
+      'مسئله: ۲۴ شکلات بین ۳ نفر تقسیم کن 🍫'
     ]
   },
   {
-    id: 'fractions_geometry',
-    name: 'کسر و هندسه',
-    icon: '🍕',
+    id: 'geometry',
+    name: 'هندسه',
+    icon: '📐',
     questions: [
-      'کسر دو سوم بزرگتره یا دو پنجم؟ 🍕',
-      'محیط مثلث متساوی‌الاضلاع با ضلع ۶ چقدره؟ 📐',
+      'محیط مستطیل با طول ۵ و عرض ۳ چقدره؟ 📏',
+      'مساحت مستطیل با طول ۶ و عرض ۴ چقدره؟ 📐',
       'تفاوت محیط و مساحت چیه؟ 🖼️',
+      'محیط مثلث متساویالاضلاع با ضلع ۶ چقدره؟ 🔺',
+      'مساحت مربع با ضلع ۵ سانتیمتر 🟧',
       'زاویه تند و باز چه فرقی دارن؟ 📐',
-      'کسرهای مساوی یعنی چی؟ ⚖️'
+      'زاویه راست یعنی چند درجه؟ 📏',
+      'تعداد گوشههای پنجضلعی چندتاست؟ ⬠',
+      'قطر دایره یعنی چی؟ ⭕',
+      'محیط مربع با ضلع ۸ چقدره؟ 🟦',
+      'مساحت مثلث با قاعده ۶ و ارتفاع ۴ 🔺',
+      'تفاوت مربع و مستطیل چیه؟ 🤔',
+      'خط تقارن مربع چندتاست؟ ✂️'
     ]
   },
   {
-    id: 'money_numbers',
-    name: 'پول و ۴رقمی',
+    id: 'money',
+    name: 'پول و ریال/تومان',
     icon: '💰',
     questions: [
       'تفاوت ریال و تومان چیه؟ 💰',
-      'عدد ۵۴۳۲ چند تا هزارتایی و صدتایی داره؟ 🔢',
-      'جمع ۴ رقمی با تکنیک انتقال چطوریه؟ 🧮',
-      'تقریب زدن اعداد به نزدیک‌ترین دهتایی 🎯'
+      '۲۵۰۰ تومان چند ریاله؟ 🔄',
+      '۵۰۰۰ ریال چند تومان میشه؟ 💵',
+      'جمع ۱۵۰۰ تومان + ۲۵۰۰ تومان 💰',
+      'اگر ۵۰۰۰ تومان داشته باشم و ۱۸۰۰ تومان خرج کنم 💸',
+      'قیمت ۳ بستنی ۱۲۰۰ تومانی چقدره؟ 🍦',
+      'تبدیل ۱۰۰۰۰ ریال به تومان 🔄',
+      'مقایسه ۳۵۰۰ تومان و ۳۰۰۰۰ ریال ⚖️',
+      'باقیمانده پول بعد از خرید ۲ دفتر ۲۰۰۰ تومانی 📒',
+      'قیمت نیم کیلو سیب اگر هر کیلو ۸۰۰۰ تومان باشه 🍎'
     ]
   },
   {
-    id: 'time_patterns',
-    name: 'ساعت و الگو',
+    id: 'time',
+    name: 'ساعت و زمان',
     icon: '⏰',
     questions: [
-      'ساعت ۱۵:۴۵ دقیقه به وقت بعدازظهر چنده؟ ⏰',
+      'ساعت ۱۵:۴۵ به وقت بعدازظهر چنده؟ ⏰',
       'نیم ساعت و ربع ساعت چند دقیقه میشه؟ ⏱️',
-      'الگوی ۶، ۱۲، ۱۸، ۲۴ رو ادامه بده 📈',
-      'شانس آمدن رنگ قرمز در چرخنده 🎡'
+      'ساعت ۱۷:۳۰ یعنی ساعت چند عصر؟ 🌅',
+      'از ساعت ۸ تا ۱۱ چند ساعت گذشته؟ ⏳',
+      '۲ ساعت و ۱۵ دقیقه چند دقیقه میشه؟ 🔢',
+      'ساعت ۲۰:۰۰ یعنی ساعت چند شب؟ 🌙',
+      'اگر الان ساعت ۳ باشه، ۴۵ دقیقه دیگه ساعت چنده؟ ⏰',
+      'تبدیل ۹۰ دقیقه به ساعت و دقیقه 🔄',
+      'مدت زمان فیلم از ۱۶:۰۰ تا ۱۷:۳۰ 🎬',
+      'ساعت ۱۲:۱۵ ظهر یعنی چی؟ ☀️'
+    ]
+  },
+  {
+    id: 'statistics',
+    name: 'آمار و احتمال',
+    icon: '📊',
+    questions: [
+      'شانس آمدن رنگ قرمز در چرخنده ۴ رنگه چقدره؟ 🎡',
+      'میانگین نمرات ۱۸، ۱۶، ۲۰ چقدره؟ 📊',
+      'در نمودار ستونی، بلندترین ستون یعنی چی؟ 📈',
+      'احتمال آمدن عدد زوج در تاس 🎲',
+      'بیشترین تکرار در دادههای ۳، ۵، ۳، ۷، ۳ چیه؟ 🔢',
+      'جدول فراوانی نمرات کلاس رو توضیح بده 📋',
+      'شانس آمدن شیر یا خط در سکه 🪙',
+      'میانگین قد ۳ نفر: ۱۲۰، ۱۳۰، ۱۴۰ سانتیمتر 📏',
+      'نمودار تصویری یعنی چی؟ با مثال 🖼️',
+      'احتمال انتخاب توپ قرمز از کیسه با ۳ قرمز و ۲ آبی 🔴'
     ]
   }
 ];
@@ -122,7 +230,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
       {
         id: 'welcome',
         sender: 'tutor',
-        text: 'سلام قهرمان ریاضی! 🌟🖐️ من «استاد دانا» هستم، معلم صبور و مهربان ریاضی سوم دبستان. هر سوال، تمرین یا مبحثی که برات سخته بپرس تا با شکل و مثال‌های پیتزایی و شکلاتی با هم حلش کنیم! 😊🍕\n\nبیا این کسر سه چهارم رو با هم ببینیم:\n<svg width="140" height="140" viewBox="0 0 120 120" style="margin: 0 auto; display: block;"><circle cx="60" cy="60" r="50" fill="white" stroke="#333" stroke-width="2"/><path d="M60,60 L60,10 A50,50 0 0,1 110,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L110,60 A50,50 0 0,1 60,110 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L60,110 A50,50 0 0,1 10,60 L60,60 Z" fill="#FF6B6B"/><path d="M60,60 L10,60 A50,50 0 0,1 60,10 L60,60 Z" fill="#FFEAA7"/><line x1="60" y1="10" x2="60" y2="110" stroke="#333" stroke-width="1.5"/><line x1="10" y1="60" x2="110" y2="60" stroke="#333" stroke-width="1.5"/></svg>',
+        text: 'سلام قهرمان ریاضی! 🌟 من «استاد دانا» هستم، معلم صبور و مهربان ریاضی سوم دبستان. هر سوال یا تمرینی که داری بپرس تا با هم مثل آب خوردن حلش کنیم! 😊🦉',
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
       }
     ];
@@ -136,6 +244,15 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [suggestionOffset, setSuggestionOffset] = useState<number>(0);
+
+  // Quick Quiz states
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizCategory, setQuizCategory] = useState<string>('all');
+  const [quizQuestions, setQuizQuestions] = useState<string[]>([]);
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  const [quizUserAnswer, setQuizUserAnswer] = useState('');
+  const [quizAnswersList, setQuizAnswersList] = useState<{ question: string; answer: string }[]>([]);
+  const [quizStep, setQuizStep] = useState<'selecting' | 'active' | 'results'>('selecting');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -353,6 +470,36 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     }
   };
 
+  const handleStartQuiz = (catId: string) => {
+    playSound('click', soundEnabled);
+    const cat = QUESTION_CATEGORIES.find(c => c.id === catId) || QUESTION_CATEGORIES[0];
+    const shuffled = [...cat.questions].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 5);
+    setQuizCategory(catId);
+    setQuizQuestions(selected);
+    setCurrentQuizIndex(0);
+    setQuizUserAnswer('');
+    setQuizAnswersList([]);
+    setQuizStep('active');
+  };
+
+  const handleNextQuizQuestion = () => {
+    if (!quizUserAnswer.trim()) return;
+    playSound('click', soundEnabled);
+    const updatedList = [...quizAnswersList, { question: quizQuestions[currentQuizIndex], answer: quizUserAnswer.trim() }];
+    setQuizAnswersList(updatedList);
+    setQuizUserAnswer('');
+
+    if (currentQuizIndex + 1 < quizQuestions.length) {
+      setCurrentQuizIndex(prev => prev + 1);
+    } else {
+      setQuizStep('results');
+      playSound('star', soundEnabled);
+      onAddStars(5);
+      onIncrementSolved();
+    }
+  };
+
   // Function to render text and graphical SVG inside chat bubbles
   const renderMessageBody = (text: string) => {
     const svgRegex = /(<svg[\s\S]*?<\/svg>)/g;
@@ -379,7 +526,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
       {/* Sleek Compact Header Bar */}
       <div className="bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#A29BFE] p-2.5 sm:p-3.5 shadow-xs flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl sm:text-2xl shadow-xs shrink-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl sm:text-2xl shadow-xs shrink-0 animate-bounce">
             🦉
           </div>
           <div className="min-w-0">
@@ -400,6 +547,35 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
         {/* Header Actions */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Daily Practice Button */}
+          <button
+            onClick={() => {
+              playSound('pop', soundEnabled);
+              const allQs = QUESTION_CATEGORIES[0].questions;
+              const randomQ = allQs[Math.floor(Math.random() * allQs.length)];
+              handleSendMessage(randomQ);
+            }}
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+            title="پیشنهاد سوال تصادفی برای تمرین امروز"
+          >
+            <span>🎯</span>
+            <span className="hidden sm:inline">تمرین روزانه</span>
+          </button>
+
+          {/* Quick Quiz Button */}
+          <button
+            onClick={() => {
+              playSound('pop', soundEnabled);
+              setQuizStep('selecting');
+              setShowQuizModal(true);
+            }}
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+            title="آزمون سریع ۵ سوالی"
+          >
+            <span>⚡</span>
+            <span className="hidden sm:inline">آزمون سریع</span>
+          </button>
+
           {/* Toggle Suggested Questions */}
           <button
             onClick={() => setShowSuggestions(!showSuggestions)}
@@ -496,7 +672,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
               <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shrink-0 shadow-2xs border-2 ${
                 msg.sender === 'user' 
                   ? 'bg-[#74B9FF] border-white text-white' 
-                  : 'bg-[#FF6B6B] border-white text-white'
+                  : 'bg-[#FF6B6B] border-white text-white animate-bounce'
               }`}>
                 {msg.sender === 'user' ? <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : '🦉'}
               </div>
@@ -612,6 +788,122 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
           </button>
         </form>
       </div>
+
+      {/* Quick Quiz Modal */}
+      {showQuizModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border-4 border-indigo-300 w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 dir-rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">⚡</span>
+                <h3 className="font-black text-lg text-indigo-900">آزمون سریع ریاضی سوم</h3>
+              </div>
+              <button
+                onClick={() => setShowQuizModal(false)}
+                className="p-1 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {quizStep === 'selecting' && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium text-slate-600">
+                  لطفاً مبحث مورد نظر خود را برای آزمون ۵ سوالی انتخاب کنید:
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {QUESTION_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleStartQuiz(cat.id)}
+                      className="p-3 rounded-2xl bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-900 border-2 border-indigo-200 transition-all font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs group"
+                    >
+                      <span className="text-lg">{cat.icon}</span>
+                      <span className="truncate">{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {quizStep === 'active' && quizQuestions.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl">
+                  <span>سوال {currentQuizIndex + 1} از {quizQuestions.length}</span>
+                  <span>🏆 آزمون هوشمند</span>
+                </div>
+
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-sm font-black text-amber-950">
+                  {quizQuestions[currentQuizIndex]}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700">پاسخ خود را بنویسید:</label>
+                  <input
+                    type="text"
+                    value={quizUserAnswer}
+                    onChange={(e) => setQuizUserAnswer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleNextQuizQuestion();
+                    }}
+                    placeholder="جواب خود را اینجا بنویسید..."
+                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleNextQuizQuestion}
+                    disabled={!quizUserAnswer.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-black px-6 py-2.5 rounded-xl shadow-md transition-all cursor-pointer disabled:shadow-none"
+                  >
+                    {currentQuizIndex + 1 === quizQuestions.length ? 'پایان و مشاهده نتیجه 🎉' : 'سوال بعدی ⬅️'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {quizStep === 'results' && (
+              <div className="space-y-5 text-center py-4">
+                <div className="w-16 h-16 bg-amber-100 border-4 border-amber-300 rounded-full flex items-center justify-center text-3xl mx-auto animate-bounce">
+                  🏆
+                </div>
+                <div>
+                  <h4 className="text-xl font-black text-indigo-950">آزمون به پایان رسید!</h4>
+                  <p className="text-sm font-medium text-slate-600 mt-1">
+                    آفرین قهرمان! شما به ۵ سوال از مبحث مورد نظر پاسخ دادید و ۵ ستاره پاداش گرفتید! ⭐
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-3 max-h-48 overflow-y-auto space-y-2 text-right">
+                  {quizAnswersList.map((item, idx) => (
+                    <div key={idx} className="text-xs border-b border-slate-200 pb-2">
+                      <p className="font-bold text-indigo-900">{idx + 1}. {item.question}</p>
+                      <p className="text-emerald-700 font-medium mt-0.5">پاسخ شما: {item.answer}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 justify-center pt-2">
+                  <button
+                    onClick={() => setQuizStep('selecting')}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs"
+                  >
+                    انتخاب مبحث دیگر 🔄
+                  </button>
+                  <button
+                    onClick={() => setShowQuizModal(false)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-2.5 rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                  >
+                    بازگشت به گفتگو 🌟
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
