@@ -12,6 +12,7 @@ import {
 } from './src/utils/safeTutorEngine';
 import { getSmsService } from './src/services/smsService';
 import { userStore, maskPhoneNumber } from './src/services/userStore';
+import { questionBankService, COMPACT_QUESTION_SYSTEM_PROMPT } from './src/services/questionBankService';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
@@ -972,6 +973,96 @@ app.delete('/api/user/data', async (req, res) => {
   } catch (err: any) {
     console.error('Error wiping user data:', err);
     res.status(500).json({ error: 'خطا در پاک‌سازی داده‌های کاربر' });
+  }
+});
+
+// ==========================================
+// Incremental Question Bank Endpoints (تولید تدریجی سوال)
+// ==========================================
+
+// دریافت سوالات ذخیره شده برای یک فصل و سطح دشواری
+app.get('/api/questions', async (req, res) => {
+  try {
+    const chapterId = (req.query.chapterId as any) || 'patterns';
+    const difficulty = (req.query.difficulty as any) || undefined;
+
+    const questions = await questionBankService.getQuestions(chapterId, difficulty);
+    res.json({
+      success: true,
+      chapterId,
+      difficulty,
+      count: questions.length,
+      questions,
+    });
+  } catch (err: any) {
+    console.error('Error fetching questions:', err);
+    res.status(500).json({ error: 'خطا در دریافت سوالات' });
+  }
+});
+
+// تولید یک بسته ۳ تایی سوال جدید با کیفیت بدون خستگی یا مقاومت مدل
+app.post('/api/questions/generate', async (req, res) => {
+  try {
+    const { chapterId = 'patterns', difficulty = 'medium', existingTitles = [] } = req.body;
+
+    // ۱. ساخت پرامپت فشرده و دقیق برای ۳ سوال
+    const promptText = questionBankService.buildPromptForBatch(chapterId, difficulty, existingTitles);
+
+    // ۲. فراخوانی مدل با سیستم پرامپت اختصاصی و فرمت JSON
+    let rawResponse = '';
+    try {
+      rawResponse = await generateGeminiContentWithFallback(promptText, {
+        systemInstruction: COMPACT_QUESTION_SYSTEM_PROMPT,
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+      });
+    } catch (genErr: any) {
+      console.warn('[Question Gen] Model call error, returning fallback:', genErr?.message);
+    }
+
+    if (!rawResponse) {
+      return res.status(500).json({ error: 'عدم دریافت پاسخ از مدل هوش مصنوعی' });
+    }
+
+    // ۳. پارس ایمن آرایه JSON
+    let parsedArray: any[] = [];
+    try {
+      // پاک‌سازی تگ‌های markdown در صورت وجود
+      const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      parsedArray = JSON.parse(cleanJson);
+      if (!Array.isArray(parsedArray)) {
+        if (parsedArray && typeof parsedArray === 'object') {
+          parsedArray = (parsedArray as any).questions || [parsedArray];
+        }
+      }
+    } catch (parseErr) {
+      console.error('JSON parse error on generated questions:', parseErr, rawResponse);
+      return res.status(500).json({ error: 'خطا در ساختار خروجی سوالات' });
+    }
+
+    // ۴. ذخیره در Vercel KV با بررسی تکراری نبودن (Deduplication)
+    const saved = await questionBankService.saveNewQuestions(chapterId, difficulty, parsedArray);
+
+    res.json({
+      success: true,
+      generatedCount: saved.length,
+      newQuestions: saved,
+      message: `تعداد ${saved.length} سوال جدید با موفقیت به بانک اضافه شد.`,
+    });
+  } catch (err: any) {
+    console.error('Error generating questions batch:', err);
+    res.status(500).json({ error: 'خطا در فرآیند تولید سوال' });
+  }
+});
+
+// دریافت آمار تفکیکی بانک سوالات
+app.get('/api/questions/stats', async (req, res) => {
+  try {
+    const stats = await questionBankService.getStats();
+    res.json({ success: true, stats });
+  } catch (err: any) {
+    console.error('Error getting question stats:', err);
+    res.status(500).json({ error: 'خطا در دریافت آمار بانک سوالات' });
   }
 });
 

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChapterId, QuizQuestion } from '../../types';
 import { CHAPTERS, SAMPLE_QUIZZES } from '../../data/curriculum';
 import { playSound } from '../../utils/sound';
+import { useQuestionBank } from '../../hooks/useQuestionBank';
+import { saveMistake } from '../../utils/mistakeStore';
 import confetti from 'canvas-confetti';
 import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star } from 'lucide-react';
 
@@ -21,20 +23,39 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
   onRecordHistory,
 }) => {
   const [selectedChapter, setSelectedChapter] = useState<ChapterId>(initialChapterId);
-  const [questions, setQuestions] = useState<QuizQuestion[]>(SAMPLE_QUIZZES[initialChapterId] || SAMPLE_QUIZZES['patterns'] || []);
+
+  // بانک سوالات هوشمند با پر کردن خودکار در پس‌زمینه در صورتی که کمتر از ۱۲ سوال باشد
+  const {
+    questions: bankQuestions,
+    isGenerating,
+    generateMore,
+  } = useQuestionBank({
+    chapterId: selectedChapter,
+    autoRefillThreshold: 12,
+    enableAutoRefill: true,
+  });
+
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
   const [score, setScore] = useState<number>(0);
   const [showHint, setShowHint] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
 
-  const currentQ = questions[currentIndex];
+  // هماهنگی لیست سوالات کوئیز با سوالات بانک
+  useEffect(() => {
+    if (bankQuestions.length > 0) {
+      setQuestions(bankQuestions);
+    } else {
+      setQuestions(SAMPLE_QUIZZES[selectedChapter] || SAMPLE_QUIZZES['patterns'] || []);
+    }
+  }, [bankQuestions, selectedChapter]);
+
+  const currentQ = questions[currentIndex] || questions[0];
 
   const handleGenerateAIQuiz = async (chapterIdToUse = selectedChapter) => {
     playSound('click', soundEnabled);
-    setLoading(true);
     setQuizCompleted(false);
     setCurrentIndex(0);
     setScore(0);
@@ -42,35 +63,12 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
     setIsAnswered(false);
     setShowHint(false);
 
-    const chInfo = CHAPTERS.find(c => c.id === chapterIdToUse);
-
-    try {
-      const res = await fetch('/api/tutor/generate-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chapterId: chapterIdToUse,
-          chapterTitle: chInfo?.title || chapterIdToUse,
-          count: 3,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.questions) && data.questions.length > 0) {
-        setQuestions(data.questions);
-      } else {
-        // Fallback to offline sample
-        setQuestions(SAMPLE_QUIZZES[chapterIdToUse] || SAMPLE_QUIZZES['patterns']);
-      }
-    } catch (err) {
-      setQuestions(SAMPLE_QUIZZES[chapterIdToUse] || SAMPLE_QUIZZES['patterns']);
-    } finally {
-      setLoading(false);
-    }
+    // درخواست ۳ سوال جدید از طریق هوک
+    await generateMore();
   };
 
   const handleSelectOption = (index: number) => {
-    if (isAnswered) return;
+    if (isAnswered || !currentQ) return;
     setSelectedOpt(index);
     setIsAnswered(true);
 
@@ -82,6 +80,13 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
       onIncrementSolved();
     } else {
       playSound('wrong', soundEnabled);
+      // ثبت خودکار در دفترچه اشتباهات جهت مرور هوشمند بعدی
+      saveMistake('current_student', {
+        userId: 'current_student',
+        question: currentQ.question,
+        userAnswer: currentQ.options[index] || '',
+        correctAnswer: currentQ.options[currentQ.correctAnswerIndex] || '',
+      });
     }
   };
 
@@ -117,11 +122,11 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
 
         <button
           onClick={() => handleGenerateAIQuiz(selectedChapter)}
-          disabled={loading}
+          disabled={isGenerating}
           className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-2xl border-2 border-amber-500 text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>تولید سوالات جدید</span>
+          <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+          <span>{isGenerating ? 'در حال طراحی سوالات...' : 'تولید سوالات جدید'}</span>
         </button>
       </div>
 
@@ -149,7 +154,7 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
       </div>
 
       {/* Loading state */}
-      {loading ? (
+      {isGenerating && questions.length === 0 ? (
         <div className="py-12 text-center space-y-3">
           <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-sm font-bold text-slate-700">معلم هوشمند در حال طراح سوالات آزمون این فصل است... 🤖✨</p>
