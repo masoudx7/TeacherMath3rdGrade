@@ -24,14 +24,14 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
 }) => {
   const [selectedChapter, setSelectedChapter] = useState<ChapterId>(initialChapterId);
 
-  // بانک سوالات هوشمند با پر کردن خودکار در پس‌زمینه در صورتی که کمتر از ۱۲ سوال باشد
+  // بانک سوالات هوشمند با پر کردن خودکار در پس‌زمینه تا سقف ۲۵ سوال
   const {
     questions: bankQuestions,
     isGenerating,
     generateMore,
   } = useQuestionBank({
     chapterId: selectedChapter,
-    autoRefillThreshold: 12,
+    autoRefillThreshold: 25,
     enableAutoRefill: true,
   });
 
