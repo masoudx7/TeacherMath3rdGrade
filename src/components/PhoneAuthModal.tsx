@@ -5,7 +5,7 @@ import { playSound } from '../utils/sound';
 interface PhoneAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (phoneNumber: string, name?: string) => void;
+  onLoginSuccess: (phoneNumber: string, name?: string, serverProfile?: any) => void;
   soundEnabled: boolean;
   currentPhoneNumber?: string;
   isLoggedIn?: boolean;
@@ -196,7 +196,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
       }
 
       playSound('correct', soundEnabled);
-      onLoginSuccess(phoneNumber, studentName);
+      onLoginSuccess(phoneNumber, studentName, data.profile);
       onClose();
     } catch (err: any) {
       setError(err.message || 'کد تایید اشتباه است.');

@@ -1,5 +1,17 @@
+import { findVerifiedSafeResponse, validateAndCorrectTutorResponse } from './safeTutorEngine';
+
 // Helper function for smart pedagogical tutor responses when server or API is unavailable
 export function generateFallbackTutorResponse(prompt: string): string {
+  // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده
+  const safeItem = findVerifiedSafeResponse(prompt);
+  if (safeItem) {
+    const textWithSvg = safeItem.svgDiagram 
+      ? `${safeItem.socraticResponse}\n\n${safeItem.svgDiagram}`
+      : safeItem.socraticResponse;
+    const validated = validateAndCorrectTutorResponse(textWithSvg);
+    return validated.cleanText;
+  }
+
   const p = prompt.trim().toLowerCase();
 
   // 1. احوال‌پرسی و صحبت‌های غیرریاضی و دوستانه

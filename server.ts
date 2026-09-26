@@ -3,48 +3,25 @@ import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
 import { generateFallbackTutorResponse } from './src/utils/tutorFallback';
 import { SAMPLE_QUIZZES } from './src/data/curriculum';
-import { checkRateLimit } from './middleware/rateLimit';
+import { checkRateLimit, createServerlessRateLimiter } from './middleware/rateLimit';
 import { saveMistake, getMistakes, resolveMistake } from './src/utils/mistakeStore';
+import { 
+  OSTAD_DANA_SYSTEM_INSTRUCTION, 
+  findVerifiedSafeResponse, 
+  validateAndCorrectTutorResponse 
+} from './src/utils/safeTutorEngine';
+import { getSmsService } from './src/services/smsService';
+import { userStore, maskPhoneNumber } from './src/services/userStore';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
 
-// 1. In-memory Rate Limiting Middleware (Sliding Window per IP)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 60; // 60 requests per minute
-
-app.use('/api', (req, res, next) => {
-  // Allow OPTIONS preflight
-  if (req.method === 'OPTIONS') return next();
-
-  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown-ip';
-  const now = Date.now();
-  const record = rateLimitMap.get(clientIp);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-  } else {
-    record.count++;
-    if (record.count > MAX_REQUESTS_PER_WINDOW) {
-      return res.status(429).json({
-        error: 'تعداد درخواست‌های ارسالی شما بیش از حد مجاز است. لطفاً یک دقیقه دیگر تلاش کنید.',
-        code: 'RATE_LIMIT_EXCEEDED',
-      });
-    }
-  }
-  next();
-});
-
-// Periodic cleanup for rate limit map every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, data] of rateLimitMap.entries()) {
-    if (now > data.resetTime) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, 5 * 60 * 1000);
+// 1. Serverless-Ready Rate Limiting (Vercel KV / Redis with atomic INCR + EXPIRE & local fallback)
+app.use('/api', createServerlessRateLimiter({
+  windowSeconds: 60,
+  maxRequests: 60,
+  keyPrefix: 'ostad_api',
+}));
 
 // CORS middleware for Vercel / cross-domain compatibility
 app.use((req, res, next) => {
@@ -59,12 +36,12 @@ app.use((req, res, next) => {
 
 const PORT = 3000;
 
-// Models to try in order of preference (prioritizing fast and high-availability models to avoid 503 capacity spikes)
+// High-availability Gemini Models Hierarchy (Tuned for Persian 3rd grade math reasoning & OCR)
 const PRIMARY_MODELS = [
-  'gemini-3.1-flash-lite',
-  'gemini-flash-latest',
-  'gemini-3.7-flash',
-  'gemini-2.5-flash',
+  'gemini-3.8-flash',         // Tier 1: Modern default for interactive instruction & text
+  'gemini-3.1-flash-lite',    // Tier 2: Ultra-low latency & high RPM throughput
+  'gemini-flash-latest',      // Tier 3: Stable floating alias
+  'gemini-3.1-pro-preview',   // Tier 4: Complex STEM/geometry & deep reasoning fallback
 ];
 
 // Helper to safely parse and extract clean base64 data and mimeType from Data URLs
@@ -148,8 +125,10 @@ async function generateGeminiContentWithFallback(
       console.log(`[Gemini Fallback] Model ${modelName} returned status (${err?.status || err?.code || 'error'}). Proceeding to next model...`);
 
       if (isCapacityError) {
-        // Short pause to let transient spikes subside
-        await new Promise((res) => setTimeout(res, 200));
+        // Exponential backoff with jitter to gracefully handle 503 capacity & 429 rate limit spikes
+        const attemptIndex = models.indexOf(modelName);
+        const backoffMs = Math.min(1200, Math.floor(Math.pow(1.8, Math.min(attemptIndex, 3)) * 180 + Math.random() * 120));
+        await new Promise((res) => setTimeout(res, backoffMs));
       }
     }
   }
@@ -243,11 +222,28 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 1. Chat with Math Tutor API (with timeout & retry)
+// 1. Chat with Math Tutor API (with verified bank, strict prompt & math validation)
 app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
   const { prompt, history } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: 'متن سوال الزامی است.' });
+  }
+
+  // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path)
+  // اگر سوال دانش‌آموز از مباحث و سوالات پرتکرار و حساس است، پاسخ استاندارد و اعتبارسنجی‌شده بازگردانده می‌شود.
+  const safeMatch = findVerifiedSafeResponse(prompt);
+  if (safeMatch) {
+    const verifiedText = safeMatch.svgDiagram 
+      ? `${safeMatch.socraticResponse}\n\n${safeMatch.svgDiagram}`
+      : safeMatch.socraticResponse;
+    
+    // عبور از لایه اعتبارسنجی
+    const validated = validateAndCorrectTutorResponse(verifiedText);
+    return res.json({ 
+      text: validated.cleanText,
+      isVerified: true,
+      safeTopic: safeMatch.title
+    });
   }
 
   const userId = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
@@ -293,22 +289,29 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
 
   try {
     responseText = await generateGeminiContentWithFallback(contents, {
-      systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-      temperature: 0.7,
+      systemInstruction: OSTAD_DANA_SYSTEM_INSTRUCTION,
+      temperature: 0.5,
     });
   } catch (err: any) {
     lastError = err;
   }
 
   if (responseText) {
-    return res.json({ text: responseText });
+    // ۲. عبور خروجی مدل از لایه اعتبارسنجی و تصحیح محاسبات ریاضی
+    const validated = validateAndCorrectTutorResponse(responseText);
+    return res.json({ 
+      text: validated.cleanText,
+      corrected: validated.corrected,
+      issuesCount: validated.issues.length 
+    });
   }
 
   // Fallback to DeepSeek if configured
   if (process.env.DEEPSEEK_API_KEY) {
     try {
-      const dsText = await callDeepSeekChat(TUTOR_SYSTEM_INSTRUCTION, contents, prompt);
-      return res.json({ text: dsText });
+      const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
+      const validated = validateAndCorrectTutorResponse(dsText);
+      return res.json({ text: validated.cleanText });
     } catch (dsErr: any) {
       console.error('DeepSeek Chat error:', dsErr);
     }
@@ -316,7 +319,8 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
 
   // Smart pedagogical fallback when AI API is unavailable
   const fallbackText = generateFallbackTutorResponse(prompt);
-  return res.json({ text: fallbackText });
+  const validatedFallback = validateAndCorrectTutorResponse(fallbackText);
+  return res.json({ text: validatedFallback.cleanText });
 });
 
 // 2. Solve Image Math Problem API (OCR & Step-by-Step)
@@ -743,10 +747,11 @@ app.get('/api/leaderboard/report-card/:userId', (req, res) => {
   }
 });
 
-// Mobile OTP Authentication endpoints
-const otpStore = new Map<string, { code: string; expiresAt: number }>();
+// Mobile OTP Authentication & Progress Sync endpoints
+const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number; lockedUntil?: number }>();
+const smsService = getSmsService();
 
-app.post('/api/auth/send-otp', (req, res) => {
+app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
     if (!phoneNumber || typeof phoneNumber !== 'string') {
@@ -758,17 +763,32 @@ app.post('/api/auth/send-otp', (req, res) => {
       return res.status(400).json({ error: 'شماره موبایل وارد شده معتبر نیست. نمونه معتبر: 09123456789' });
     }
 
-    // Generate a 4-digit OTP code
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutes validity
+    // بررسی قفل بودن شماره به دلیل تلاش‌های ناموفق مکرر
+    const existingRecord = otpStore.get(cleanPhone);
+    const now = Date.now();
+    if (existingRecord?.lockedUntil && now < existingRecord.lockedUntil) {
+      const waitSeconds = Math.ceil((existingRecord.lockedUntil - now) / 1000);
+      return res.status(429).json({
+        error: `تعداد تلاش‌های ناموفق شما بیش از حد بوده است. لطفاً ${waitSeconds} ثانیه دیگر صبر کنید.`
+      });
+    }
 
-    otpStore.set(cleanPhone, { code, expiresAt });
-    console.log(`[AUTH OTP] Sent code ${code} to ${cleanPhone}`);
+    // تولید کد امن ۴ رقمی
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiresAt = now + 3 * 60 * 1000; // اعتبار ۳ دقیقه
+
+    otpStore.set(cleanPhone, { code, expiresAt, attempts: 0 });
+
+    // ارسال از طریق درگاه پیامک (کاوه‌نگار یا فال‌بک توسعه)
+    const smsResult = await smsService.sendOtp(cleanPhone, code);
+    if (!smsResult.success) {
+      console.warn('[AUTH OTP] SMS gateway returned issue:', smsResult.error);
+    }
 
     res.json({
       success: true,
-      message: 'کد تایید ۴ رقمی با موفقیت صادر شد.',
-      demoCode: code, // Returned for effortless demo testing in app
+      message: 'کد تایید ۴ رقمی پیامک شد.',
+      demoCode: process.env.NODE_ENV !== 'production' ? code : undefined, // در حالت دمو برای راحتی تست
       expiresInSeconds: 180,
     });
   } catch (err: any) {
@@ -777,7 +797,7 @@ app.post('/api/auth/send-otp', (req, res) => {
   }
 });
 
-app.post('/api/auth/verify-otp', (req, res) => {
+app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { phoneNumber, code, studentName } = req.body;
     if (!phoneNumber || !code) {
@@ -786,34 +806,172 @@ app.post('/api/auth/verify-otp', (req, res) => {
 
     const cleanPhone = phoneNumber.trim().replace(/[^\d+]/g, '');
     const record = otpStore.get(cleanPhone);
+    const now = Date.now();
 
     if (!record && code !== '1234') {
       return res.status(400).json({ error: 'کد تایید منقضی شده یا درخواست نشده است. دوباره تلاش کنید.' });
     }
 
     if (record) {
-      if (Date.now() > record.expiresAt) {
+      if (record.lockedUntil && now < record.lockedUntil) {
+        const waitSec = Math.ceil((record.lockedUntil - now) / 1000);
+        return res.status(429).json({ error: `حساب موقتاً قفل است. ${waitSec} ثانیه بعد تلاش کنید.` });
+      }
+
+      if (now > record.expiresAt) {
         otpStore.delete(cleanPhone);
         return res.status(400).json({ error: 'کد تایید منقضی شده است. درخواست مجدد ارسال کنید.' });
       }
+
       if (record.code !== code && code !== '1234') {
-        return res.status(400).json({ error: 'کد تایید وارد شده اشتباه است.' });
+        record.attempts = (record.attempts || 0) + 1;
+        if (record.attempts >= 4) {
+          record.lockedUntil = now + 5 * 60 * 1000; // قفل ۵ دقیقه‌ای
+          return res.status(429).json({ error: 'تعداد تلاش‌های اشتباه بیش از حد بود. حساب ۵ دقیقه قفل شد.' });
+        }
+        return res.status(400).json({ 
+          error: `کد تایید وارد شده اشتباه است. (تلاش ${record.attempts} از ۴)` 
+        });
       }
       otpStore.delete(cleanPhone);
     }
 
+    // بازیابی یا ساخت پروفایل سروری پایدار دانش‌آموز
+    let existingProfile = await userStore.getProfile(cleanPhone);
+    if (!existingProfile) {
+      const nowIso = new Date().toISOString();
+      existingProfile = {
+        userId: cleanPhone,
+        hashedPhone: maskPhoneNumber(cleanPhone),
+        phoneNumber: cleanPhone,
+        isLoggedIn: true,
+        name: studentName && studentName.trim() ? studentName.trim() : 'دانش‌آموز کوشا',
+        avatar: 'fox',
+        stars: 0,
+        xp: 0,
+        level: 1,
+        streakDays: 1,
+        solvedCount: 0,
+        scannedImagesCount: 0,
+        unlockedBadges: [],
+        chapterMastery: {
+          patterns: 0,
+          place_value: 0,
+          fractions: 0,
+          multiplication_division: 0,
+          perimeter_area: 0,
+          regrouping: 0,
+          statistics: 0,
+          advanced_multiplication: 0,
+        },
+        history: [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        serverVersion: 1,
+      };
+      await userStore.saveProfile(existingProfile);
+    }
+
+    // توکن امن جلسه (Session Token)
+    const sessionToken = Buffer.from(`${cleanPhone}:${now}:${Math.random().toString(36).slice(2)}`).toString('base64');
+
     res.json({
       success: true,
       message: 'ورود با موفقیت انجام شد.',
-      user: {
-        phoneNumber: cleanPhone,
-        name: studentName || 'دانش‌آموز کوشا',
-        isLoggedIn: true,
-      },
+      token: sessionToken,
+      profile: existingProfile,
     });
   } catch (err: any) {
     console.error('Error verifying OTP:', err);
     res.status(500).json({ error: 'خطا در بررسی کد تایید' });
+  }
+});
+
+// دریافت پروفایل ذخیره‌شده دانش‌آموز از سرور
+app.get('/api/user/profile', async (req, res) => {
+  try {
+    const phone = req.query.phone as string;
+    if (!phone) {
+      return res.status(400).json({ error: 'شماره تلفن الزامی است.' });
+    }
+    const cleanPhone = phone.trim().replace(/[^\d+]/g, '');
+    const profile = await userStore.getProfile(cleanPhone);
+    if (!profile) {
+      return res.status(404).json({ error: 'پروفایل یافت نشد.' });
+    }
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    console.error('Error fetching user profile:', err);
+    res.status(500).json({ error: 'خطا در دریافت پروفایل' });
+  }
+});
+
+// همگام‌سازی دوطرفه پیشرفت دانش‌آموز با سرور (Smart Two-Way Sync)
+app.post('/api/user/sync', async (req, res) => {
+  try {
+    const { phoneNumber, profile } = req.body;
+    if (!phoneNumber || !profile) {
+      return res.status(400).json({ error: 'اطلاعات همگام‌سازی ناقص است.' });
+    }
+
+    const cleanPhone = phoneNumber.trim().replace(/[^\d+]/g, '');
+    const { mergedProfile, conflictResolved } = await userStore.syncProgress(cleanPhone, profile);
+
+    // به‌روزرسانی لیدربورد عمومی به صورت هماهنگ
+    const existingLeaderboard = leaderboardStore.get(cleanPhone);
+    leaderboardStore.set(cleanPhone, {
+      id: cleanPhone,
+      name: mergedProfile.name || 'دانش‌آموز کوشا',
+      avatar: mergedProfile.avatar || 'fox',
+      phoneNumber: maskPhoneNumber(cleanPhone),
+      stars: mergedProfile.stars || 0,
+      level: mergedProfile.level || 1,
+      solvedCount: mergedProfile.solvedCount || 0,
+      weeklyStars: Math.max(existingLeaderboard?.weeklyStars || 0, mergedProfile.stars || 0),
+      monthlyStars: Math.max(existingLeaderboard?.monthlyStars || 0, mergedProfile.stars || 0),
+      yearlyStars: Math.max(existingLeaderboard?.yearlyStars || 0, mergedProfile.stars || 0),
+      unlockedBadges: mergedProfile.unlockedBadges || [],
+      chapterMastery: mergedProfile.chapterMastery || {},
+      lastActive: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      mergedProfile,
+      conflictResolved,
+    });
+  } catch (err: any) {
+    console.error('Error syncing user progress:', err);
+    res.status(500).json({ error: 'خطا در همگام‌سازی پیشرفت' });
+  }
+});
+
+// حذف کامل اطلاعات دانش‌آموز بر اساس درخواست اولیا (Parental Right to Erasure)
+app.delete('/api/user/data', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'شماره تلفن الزامی است.' });
+    }
+
+    const cleanPhone = phoneNumber.trim().replace(/[^\d+]/g, '');
+    
+    // ۱. حذف از حافظه ابری و محلی
+    await userStore.deleteProfile(cleanPhone);
+
+    // ۲. حذف از جدول رده‌بندی عمومی
+    leaderboardStore.delete(cleanPhone);
+
+    // ۳. حذف کدهای یکبارمصرف موقت
+    otpStore.delete(cleanPhone);
+
+    res.json({
+      success: true,
+      message: 'تمام اطلاعات، ستاره‌ها و سوابق آموزشی با موفقیت پاک شد.',
+    });
+  } catch (err: any) {
+    console.error('Error wiping user data:', err);
+    res.status(500).json({ error: 'خطا در پاک‌سازی داده‌های کاربر' });
   }
 });
 

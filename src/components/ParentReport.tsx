@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StudentProfile, ChapterId } from '../types';
 import { CHAPTERS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
+import { ParentalConsentModal } from './ParentalConsentModal';
 import { 
   Users, 
   Award, 
@@ -15,16 +16,19 @@ import {
   BookOpen, 
   Star,
   Flame,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 
 interface ParentReportProps {
   profile: StudentProfile;
   soundEnabled: boolean;
+  onDataWiped?: () => void;
 }
 
-export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnabled }) => {
+export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnabled, onDataWiped }) => {
   const [copied, setCopied] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   // Compute stats
   const masteryValues: number[] = Object.values(profile.chapterMastery || {});
@@ -100,6 +104,13 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
         {/* Action Buttons */}
         <div className="flex items-center gap-2 print:hidden shrink-0 flex-wrap">
           <button
+            onClick={() => setIsPrivacyModalOpen(true)}
+            className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+          >
+            <ShieldCheck className="w-4 h-4 text-amber-700" />
+            <span>حریم خصوصی و تنظیمات اولیا 🛡️</span>
+          </button>
+          <button
             onClick={handleCopyReport}
             className="flex items-center gap-1.5 bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
           >
@@ -115,6 +126,16 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
           </button>
         </div>
       </div>
+
+      {/* Parental Consent & Privacy Modal */}
+      <ParentalConsentModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        phoneNumber={profile.phoneNumber}
+        studentName={profile.name}
+        onDataWiped={onDataWiped}
+        soundEnabled={soundEnabled}
+      />
 
       {/* Student Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

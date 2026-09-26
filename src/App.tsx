@@ -16,6 +16,7 @@ import { ParentReport } from './components/ParentReport';
 import { MyQuestionsView } from './components/MyQuestionsView';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
+import { fetchServerProfile, syncProgressToServer } from './utils/syncManager';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
 const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
@@ -111,12 +112,47 @@ export default function App() {
     return initial;
   });
 
-  const handleLoginSuccess = (phoneNumber: string, name?: string) => {
+  const handleLoginSuccess = async (phoneNumber: string, name?: string, serverProfile?: any) => {
+    // ۱. اگر پروفایل از سرور دریافت شده باشد، مستقیماً بازیابی می‌شود
+    if (serverProfile) {
+      const restoredProfile: StudentProfile = {
+        ...DEFAULT_PROFILE,
+        ...serverProfile,
+        phoneNumber,
+        isLoggedIn: true,
+        name: name && name.trim() ? name.trim() : serverProfile.name || 'دانش‌آموز کوشا',
+      };
+      restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+      setProfile(restoredProfile);
+      saveAccountToStore(restoredProfile);
+      return;
+    }
+
+    // ۲. در غیر این صورت، از سرور استعلام می‌شود (برای سناریوی تغییر دستگاه یا پاک شدن کش)
+    try {
+      const remote = await fetchServerProfile(phoneNumber);
+      if (remote) {
+        const restoredProfile: StudentProfile = {
+          ...DEFAULT_PROFILE,
+          ...remote,
+          phoneNumber,
+          isLoggedIn: true,
+          name: name && name.trim() ? name.trim() : remote.name || 'دانش‌آموز کوشا',
+        };
+        restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+        setProfile(restoredProfile);
+        saveAccountToStore(restoredProfile);
+        return;
+      }
+    } catch (e) {
+      console.warn('Could not fetch server profile on login:', e);
+    }
+
+    // ۳. بررسی حافظه محلی ذخیره‌شده
     const accounts = getSavedAccountsMap();
     const existingAccount = accounts[phoneNumber];
 
     if (existingAccount) {
-      // Restore previous user profile!
       const restoredProfile: StudentProfile = {
         ...existingAccount,
         phoneNumber,
@@ -125,8 +161,9 @@ export default function App() {
       };
       restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
       setProfile(restoredProfile);
+      saveAccountToStore(restoredProfile);
     } else {
-      // Brand new user profile for this phone number
+      // ایجاد پروفایل نو
       const newProfile: StudentProfile = {
         ...DEFAULT_PROFILE,
         phoneNumber,
@@ -135,6 +172,7 @@ export default function App() {
       };
       newProfile.unlockedBadges = getUnlockedBadges(newProfile);
       setProfile(newProfile);
+      saveAccountToStore(newProfile);
     }
   };
 
@@ -142,6 +180,7 @@ export default function App() {
     // 1. Save progress of current logged-in user before logging out
     if (profile.phoneNumber && profile.isLoggedIn) {
       saveAccountToStore(profile);
+      syncProgressToServer(profile);
     }
 
     // 2. Reset active profile to guest defaults (0 stars, cleared stats, logged out)
@@ -162,29 +201,13 @@ export default function App() {
     }
   };
 
-  // Save profile to localStorage on updates & sync
+  // Save profile to localStorage on updates & sync to server
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
       if (profile.isLoggedIn && profile.phoneNumber) {
         saveAccountToStore(profile);
-
-        // Sync to server leaderboard
-        fetch('/api/leaderboard/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: profile.phoneNumber,
-            name: profile.name,
-            avatar: profile.avatar,
-            phoneNumber: profile.phoneNumber,
-            stars: profile.stars,
-            level: profile.level,
-            solvedCount: profile.solvedCount,
-            unlockedBadges: profile.unlockedBadges,
-            chapterMastery: profile.chapterMastery,
-          }),
-        }).catch(err => console.warn('Leaderboard auto-sync failed:', err));
+        syncProgressToServer(profile);
       }
     } catch (e) {
       console.error(e);
@@ -378,6 +401,7 @@ export default function App() {
           <ParentReport
             profile={profile}
             soundEnabled={soundEnabled}
+            onDataWiped={handleLogout}
           />
         )}
 
