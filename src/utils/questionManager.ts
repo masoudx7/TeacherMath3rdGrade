@@ -1,4 +1,20 @@
-import { kv } from '@vercel/kv';
+let cachedKvClient: any = null;
+let kvAttempted = false;
+
+async function getSafeKvClient() {
+  if (kvAttempted) return cachedKvClient;
+  kvAttempted = true;
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const kvMod = await import('@vercel/kv');
+      cachedKvClient = kvMod.kv || (kvMod as any).default?.kv || kvMod;
+      return cachedKvClient;
+    } catch (e) {
+      console.warn('[questionManager] Failed to load KV client:', e);
+    }
+  }
+  return null;
+}
 
 const BASE_QUESTIONS_URL = '/data/base-questions.json';
 const LOCAL_DB_NAME = 'ostad_dana_questions';
@@ -143,15 +159,20 @@ export const syncQuestionsToCloud = async (userId: string) => {
     
     const key = `user_questions:${userId}`;
     let existing: QuestionItem[] = [];
-    try {
-      existing = await kv.get<QuestionItem[]>(key) || [];
-    } catch (err) {
-      existing = [];
+    const kv = await getSafeKvClient();
+    if (kv && typeof kv.get === 'function') {
+      try {
+        existing = (await kv.get(key)) || [];
+      } catch (err) {
+        existing = [];
+      }
     }
     
     const merged = [...existing, ...localQuestions].slice(-200); // حداکثر ۲۰۰ سوال AI
     
-    await kv.set(key, merged);
+    if (kv && typeof kv.set === 'function') {
+      await kv.set(key, merged);
+    }
     
     // پاک کردن لوکال بعد از سینک موفق
     await clearLocalAIQuestions();
@@ -169,9 +190,12 @@ export const getAllQuestions = async (userId?: string) => {
   
   let cloudAI: QuestionItem[] = [];
   if (userId) {
-    try {
-      cloudAI = await kv.get<QuestionItem[]>(`user_questions:${userId}`) || [];
-    } catch (e) {}
+    const kv = await getSafeKvClient();
+    if (kv && typeof kv.get === 'function') {
+      try {
+        cloudAI = (await kv.get(`user_questions:${userId}`)) || [];
+      } catch (e) {}
+    }
   }
   
   const allAI = [...localAI, ...cloudAI];

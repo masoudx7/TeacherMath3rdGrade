@@ -1,16 +1,15 @@
 /**
  * Question Bank Service & Incremental Generation Engine
- * سیستم تولید تدریجی و ضدتکرار سوالات ریاضی پایه سوم با پشتیبانی از Vercel KV و Fallback
+ * سیستم تولید تدریجی و ضدتکرار سوالات با بارگذاری کاملاً تنبل (Lazy) سازگار با Vercel Serverless
  */
 
-import { kv } from '@vercel/kv';
 import { QuizQuestion, ChapterId, QuestionDifficulty } from '../types';
 import { SAMPLE_QUIZZES } from '../data/curriculum';
 
 export interface GenerateBatchParams {
   chapterId: ChapterId;
   difficulty: QuestionDifficulty;
-  count?: number; // تعداد بهینه: ۳ (حداکثر ۵)
+  count?: number; // تعداد بهینه: ۳
   existingTitles?: string[];
 }
 
@@ -22,6 +21,7 @@ export interface QuestionBankStats {
 
 // سیستم نرمال‌سازی متن جهت جلوگیری قطعی از تولید سوال تکراری
 export function normalizeQuestionText(text: string): string {
+  if (!text) return '';
   return text
     .trim()
     .toLowerCase()
@@ -43,7 +43,7 @@ export function generateQuestionHash(text: string): string {
 }
 
 /**
- * پرامپت سیستمی فوق‌العاده متمرکز و کوتاه برای تولید فقط ۳ تا ۵ سوال باکیفیت بدون مقاومت مدل
+ * پرامپت سیستمی فوق‌العاده متمرکز و کوتاه برای تولید ۳ سوال باکیفیت بدون مقاومت مدل
  */
 export const COMPACT_QUESTION_SYSTEM_PROMPT = `
 تو طراح رسمی سوالات آزمون ریاضی پایه سوم ابتدایی در وزارت آموزش و پرورش ایران هستی.
@@ -57,25 +57,60 @@ export const COMPACT_QUESTION_SYSTEM_PROMPT = `
 ۵. خروجی باید صرفاً یک آرایه معتبر JSON شامل ۳ شیء با فرمت مشخص‌شده باشد بدون هیچ متن توضیحی اضافه.
 `;
 
+// کلاینت Vercel KV به صورت پویا و تنبل (Lazy Dynamic Import)
+let cachedKvClient: any = null;
+let kvAttempted = false;
+
+async function getSafeKvClient() {
+  if (kvAttempted) return cachedKvClient;
+  kvAttempted = true;
+
+  // بررسی دقیق متغیرهای محیطی قبل از تلاش برای لود ماژول
+  const hasKvEnv = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  if (!hasKvEnv) {
+    return null;
+  }
+
+  try {
+    const kvModule = await import('@vercel/kv');
+    cachedKvClient = kvModule.kv || (kvModule as any).default?.kv || kvModule;
+    return cachedKvClient;
+  } catch (err) {
+    console.warn('[QuestionBankService] Failed to dynamically load @vercel/kv, using in-memory store:', err);
+    return null;
+  }
+}
+
 export class QuestionBankService {
   private inMemoryQuestions = new Map<string, QuizQuestion[]>();
   private knownHashes = new Set<string>();
+  private hashesInitialized = false;
 
-  constructor() {
-    // بارگذاری سوالات اولیه پیش‌فرض در هش‌ها
-    Object.values(SAMPLE_QUIZZES).flat().forEach((q) => {
-      this.knownHashes.add(generateQuestionHash(q.question));
-    });
-  }
+  // هیچ پردازش سنگینی در constructor انجام نمی‌شود تا زمان startup سرورلس صفر میلی‌ثانیه باشد
+  constructor() {}
 
-  private isKvAvailable(): boolean {
-    return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  private initHashesIfNeeded(): void {
+    if (this.hashesInitialized) return;
+    this.hashesInitialized = true;
+    try {
+      if (SAMPLE_QUIZZES && typeof SAMPLE_QUIZZES === 'object') {
+        Object.values(SAMPLE_QUIZZES).flat().forEach((q) => {
+          if (q && q.question) {
+            this.knownHashes.add(generateQuestionHash(q.question));
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[QuestionBankService] Error initializing initial hashes:', e);
+    }
   }
 
   /**
    * دریافت سوالات یک فصل و سطح دشواری
    */
   async getQuestions(chapterId: ChapterId, difficulty?: QuestionDifficulty): Promise<QuizQuestion[]> {
+    this.initHashesIfNeeded();
+
     const chapterList = SAMPLE_QUIZZES[chapterId] || [];
     const baseQuestions = chapterList.filter((q) => {
       return difficulty ? q.difficulty === difficulty : true;
@@ -84,23 +119,26 @@ export class QuestionBankService {
     let kvQuestions: QuizQuestion[] = [];
     const kvKey = difficulty ? `questions:${chapterId}:${difficulty}` : `questions:${chapterId}:all`;
 
-    if (this.isKvAvailable()) {
+    const kv = await getSafeKvClient();
+    if (kv) {
       try {
-        const data = await kv.get<QuizQuestion[]>(kvKey);
+        const data = await kv.get(kvKey);
         if (Array.isArray(data)) {
           kvQuestions = data;
         }
       } catch (err) {
-        console.warn(`[KV] خطا در خواندن سوالات کلید ${kvKey}:`, err);
+        console.warn(`[KV] Warning reading key ${kvKey}, falling back:`, err);
+        kvQuestions = this.inMemoryQuestions.get(kvKey) || [];
       }
     } else {
       kvQuestions = this.inMemoryQuestions.get(kvKey) || [];
     }
 
-    // ادغام و حذف تکراری‌ها
+    // ادغام و حذف تکراری‌ها بر اساس هش
     const all = [...baseQuestions, ...kvQuestions];
     const uniqueMap = new Map<string, QuizQuestion>();
     all.forEach((q) => {
+      if (!q || !q.question) return;
       const hash = generateQuestionHash(q.question);
       if (!uniqueMap.has(hash)) {
         uniqueMap.set(hash, q);
@@ -111,12 +149,19 @@ export class QuestionBankService {
   }
 
   /**
-   * ذخیره سوالات جدید در Vercel KV با جلوگیری قطعی از تکرار
+   * ذخیره سوالات جدید با جلوگیری قطعی از تکرار
    */
   async saveNewQuestions(chapterId: ChapterId, difficulty: QuestionDifficulty, incoming: QuizQuestion[]): Promise<QuizQuestion[]> {
+    this.initHashesIfNeeded();
+
+    if (!Array.isArray(incoming) || incoming.length === 0) {
+      return [];
+    }
+
     const validFreshQuestions: QuizQuestion[] = [];
 
     for (const q of incoming) {
+      if (!q || !q.question) continue;
       const hash = generateQuestionHash(q.question);
       if (!this.knownHashes.has(hash)) {
         this.knownHashes.add(hash);
@@ -136,14 +181,16 @@ export class QuestionBankService {
     const kvKey = `questions:${chapterId}:${difficulty}`;
     let existingList: QuizQuestion[] = [];
 
-    if (this.isKvAvailable()) {
+    const kv = await getSafeKvClient();
+    if (kv) {
       try {
-        const stored = await kv.get<QuizQuestion[]>(kvKey);
+        const stored = await kv.get(kvKey);
         if (Array.isArray(stored)) {
           existingList = stored;
         }
       } catch (err) {
-        console.warn('[KV] Error fetching existing before save:', err);
+        console.warn('[KV] Error fetching before save:', err);
+        existingList = this.inMemoryQuestions.get(kvKey) || [];
       }
     } else {
       existingList = this.inMemoryQuestions.get(kvKey) || [];
@@ -151,13 +198,15 @@ export class QuestionBankService {
 
     const updatedList = [...existingList, ...validFreshQuestions];
 
-    if (this.isKvAvailable()) {
+    if (kv) {
       try {
         await kv.set(kvKey, updatedList);
-        // بروزرسانی آمار کل در KV
-        await kv.incrby('questions:stats:total', validFreshQuestions.length);
+        if (typeof kv.incrby === 'function') {
+          await kv.incrby('questions:stats:total', validFreshQuestions.length);
+        }
       } catch (err) {
-        console.warn('[KV] Error saving updated questions:', err);
+        console.warn('[KV] Error setting updated list:', err);
+        this.inMemoryQuestions.set(kvKey, updatedList);
       }
     } else {
       this.inMemoryQuestions.set(kvKey, updatedList);
@@ -166,45 +215,27 @@ export class QuestionBankService {
     return validFreshQuestions;
   }
 
-  /**
-   * تولید پرامپت اختصاصی برای ۳ سوال متناسب با فصل و درجه سختی
-   */
   buildPromptForBatch(chapterId: ChapterId, difficulty: QuestionDifficulty, recentTitles: string[] = []): string {
-    const chapterDescriptions: Record<ChapterId, string> = {
-      patterns: 'الگوهای عددی (چندتا چندتا)، خواندن ساعت و دقیقه، و ماشین ورودی-خروجی',
-      place_value: 'اعداد چهاررقمی، جدول ارزش مکانی (هزارگان)، مقایسه و تقریب، پول ریال و تومان',
-      fractions: 'مفهوم کسر مساوی، صورت و مخرج با شکل (پیتزا و شکلات)، مقایسه کسرها و کسر روی محور',
-      multiplication_division: 'مفهوم ضرب (دسته‌های مساوی)، جدول ضرب و رابطه ضرب با تقسیم عادلانه',
-      perimeter_area: 'محیط (اندازه دور شکل) و مساحت (اندازه سطح داخلی با شمارش کاشی‌ها) برای مربع و مستطیل',
-      regrouping: 'جمع و تفریق ۴ رقمی با انتقال (ده‌بریک) و تکنیک‌های حل مسئله چندمرحله‌ای',
-      statistics: 'نمودار ستونی، جدول داده‌ها، چوب‌خط‌های ۵تایی (卌) و احتمال (حتمی، ممکن، غیرممکن)',
-      advanced_multiplication: 'ضرب اعداد در ۱۰، ۱۰۰، ضرب‌های دورقمی در یک‌رقمی و خاصیت پخش‌پذیری ضرب',
-    };
-
-    const diffGuide: Record<QuestionDifficulty, string> = {
-      easy: 'آسان: مستقیم، بدون نیاز به محاسبات چندمرحله‌ای، با مثال‌های بسیار روشن برای تقویت روحیه کودک.',
-      medium: 'متوسط: نیازمند یک مرحله تفکر و محاسبه، منطبق بر تمرینات کتاب درسی سوم.',
-      hard: 'سخت و چالشی: نیازمند دو مرحله استدلال و استراتژی حل مسئله برای دانش‌آموزان کوشا.',
-    };
-
-    const avoidanceText = recentTitles.length > 0
-      ? `\nنکته بسیار مهم: این سوالات نباید شبیه سوالات قبلی زیر باشند:\n${recentTitles.slice(-5).map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-      : '';
+    const avoidanceText =
+      recentTitles.length > 0
+        ? `\nنکته بسیار مهم: این ۳ سوال نباید شبیه یا تکراریِ سوالات زیر باشند:\n${recentTitles
+            .slice(-5)
+            .map((t, i) => `${i + 1}. ${t}`)
+            .join('\n')}`
+        : '';
 
     return `
-یک بسته دقیقاً شامل ۳ سوال چهارگزینه‌ای استاندارد ریاضی سوم دبستان برای:
-- فصل: «${chapterDescriptions[chapterId] || chapterId}»
-- سطح سختی: «${diffGuide[difficulty]}»
+یک بسته دقیقاً شامل ۳ سوال چهارگزینه‌ای مفهومی و جدید ریاضی سوم ابتدایی برای فصل «${chapterId}» در سطح سختی «${difficulty}».
 ${avoidanceText}
 
-قالب خروجی دقیقاً یک آرایه JSON به شکل زیر باشد:
+قالب خروجی دقیقاً یک آرایه JSON معتبر:
 [
   {
-    "question": "متن سوال با ارقام فارسی...",
+    "question": "صورت سوال با اعداد فارسی و مثال ملموس...",
     "options": ["گزینه ۱", "گزینه ۲", "گزینه ۳", "گزینه ۴"],
     "correctAnswerIndex": 0,
-    "hint": "راهنمایی کودکانه و دلنشین...",
-    "explanation": "توضیح کامل و تشویق‌کننده علت درستی گزینه...",
+    "hint": "راهنمایی بدون لو دادن جواب...",
+    "explanation": "پاسخ تشریحی کامل...",
     "visualType": "multiplication"
   }
 ]
@@ -251,4 +282,26 @@ ${avoidanceText}
   }
 }
 
-export const questionBankService = new QuestionBankService();
+// ========================================================
+// Lazy Singleton Pattern: نمونه‌سازی تنبل با Proxy
+// هیچ کدی در زمان import در Serverless اجرا نمی‌شود
+// ========================================================
+let _instance: QuestionBankService | null = null;
+
+export function getQuestionBankService(): QuestionBankService {
+  if (!_instance) {
+    _instance = new QuestionBankService();
+  }
+  return _instance;
+}
+
+export const questionBankService: QuestionBankService = new Proxy({} as QuestionBankService, {
+  get(_target, prop) {
+    const instance = getQuestionBankService();
+    const value = (instance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { kv } from '@vercel/kv';
 
 export interface RateLimitOptions {
   windowSeconds?: number;
@@ -18,19 +17,39 @@ export interface RateLimitResult {
 // حافظه محلی کش برای محیط توسعه (Dev) یا در صورت عدم دسترسی به KV
 const memoryFallbackMap = new Map<string, { count: number; resetTime: number }>();
 
-// پاک‌سازی دوره‌ای حافظه محلی فال‌بک هر ۳ دقیقه
-setInterval(() => {
+// تابع پاک‌سازی حافظه بدون استفاده از setInterval در سطح ماژول (Serverless-Safe)
+function pruneExpiredMemoryKeys() {
+  if (memoryFallbackMap.size < 150) return;
   const now = Date.now();
   for (const [key, value] of memoryFallbackMap.entries()) {
     if (now > value.resetTime) {
       memoryFallbackMap.delete(key);
     }
   }
-}, 3 * 60 * 1000);
+}
+
+// بارگذاری تنبل (Lazy) برای کلاینت KV
+let cachedKv: any = null;
+let kvLoadAttempted = false;
+
+async function getSafeKv() {
+  if (kvLoadAttempted) return cachedKv;
+  kvLoadAttempted = true;
+
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const kvModule = await import('@vercel/kv');
+      cachedKv = kvModule.kv || (kvModule as any).default?.kv || kvModule;
+      return cachedKv;
+    } catch (err) {
+      console.warn('[RateLimit] @vercel/kv could not be loaded dynamically, using memory fallback:', err);
+    }
+  }
+  return null;
+}
 
 /**
- * بررسی محدودیت نرخ درخواست سازگار با محیط‌های Serverless (مانند Vercel KV / Upstash Redis)
- * استفاده از الگوریتم اتمیک INCR + EXPIRE با صفر Race Condition
+ * بررسی محدودیت نرخ درخواست سازگار با محیط‌های Serverless Vercel
  */
 export async function checkRateLimit(
   identifier: string,
@@ -42,14 +61,13 @@ export async function checkRateLimit(
   const key = `${keyPrefix}:${identifier}`;
   const windowMs = windowSeconds * 1000;
 
-  // ۱. تلاش برای استفاده از Vercel KV / Redis در محیط Serverless
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+  // ۱. تلاش برای استفاده از Vercel KV در صورت وجود متغیرهای محیطی
+  const kv = await getSafeKv();
+  if (kv && typeof kv.incr === 'function') {
     try {
-      // عملیات اتمیک INCR در Redis
       const current = await kv.incr(key);
 
-      // اگر اولین بار در این پنجره است، زمان انقضا تعیین شود
-      if (current === 1) {
+      if (current === 1 && typeof kv.expire === 'function') {
         await kv.expire(key, windowSeconds);
       }
 
@@ -63,11 +81,13 @@ export async function checkRateLimit(
         total: current,
       };
     } catch (err) {
-      console.warn('[Serverless RateLimit] خطا در اتصال به KV، استفاده از حافظه موقت:', err);
+      console.warn('[Serverless RateLimit] KV error, falling back to memory:', err);
     }
   }
 
-  // ۲. فال‌بک امن در حافظه برای محیط لوکال یا زمان در دسترس نبودن KV
+  // ۲. فال‌بک امن در حافظه
+  pruneExpiredMemoryKeys();
+
   let record = memoryFallbackMap.get(key);
   if (!record || now > record.resetTime) {
     record = { count: 1, resetTime: now + windowMs };
@@ -91,7 +111,7 @@ export async function checkRateLimit(
 }
 
 /**
- * میدل‌ویر Express برای محافظت خودکار از مسیرهای API در محیط Serverless
+ * میدل‌ویر Express برای محافظت خودکار از مسیرهای API
  */
 export function createServerlessRateLimiter(options: RateLimitOptions = {}) {
   const {
@@ -102,8 +122,8 @@ export function createServerlessRateLimiter(options: RateLimitOptions = {}) {
   } = options;
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    // عبور درخواست‌های OPTIONS در CORS
-    if (skipOptions && req.method === 'OPTIONS') {
+    // عبور خودکار درخواست‌های OPTIONS و مسیر سلامت
+    if ((skipOptions && req.method === 'OPTIONS') || req.path === '/health') {
       return next();
     }
 
@@ -115,7 +135,6 @@ export function createServerlessRateLimiter(options: RateLimitOptions = {}) {
     try {
       const result = await checkRateLimit(clientIp, maxRequests, windowSeconds, keyPrefix);
 
-      // تنظیم هدرهای استاندارد Rate-Limit
       res.setHeader('X-RateLimit-Limit', maxRequests);
       res.setHeader('X-RateLimit-Remaining', result.remaining);
       res.setHeader('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000));
@@ -132,7 +151,6 @@ export function createServerlessRateLimiter(options: RateLimitOptions = {}) {
 
       next();
     } catch (err) {
-      // در صورت بروز خطای پیش‌بینی نشده، درخواست متوقف نمی‌شود
       console.error('[RateLimit Middleware Error]', err);
       next();
     }

@@ -17,13 +17,6 @@ import { questionBankService, COMPACT_QUESTION_SYSTEM_PROMPT } from './src/servi
 const app = express();
 app.use(express.json({ limit: '15mb' }));
 
-// 1. Serverless-Ready Rate Limiting (Vercel KV / Redis with atomic INCR + EXPIRE & local fallback)
-app.use('/api', createServerlessRateLimiter({
-  windowSeconds: 60,
-  maxRequests: 60,
-  keyPrefix: 'ostad_api',
-}));
-
 // CORS middleware for Vercel / cross-domain compatibility
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,6 +27,13 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// 1. Serverless-Ready Rate Limiting (Vercel KV / Redis with atomic INCR + EXPIRE & local fallback)
+app.use('/api', createServerlessRateLimiter({
+  windowSeconds: 60,
+  maxRequests: 60,
+  keyPrefix: 'ostad_api',
+}));
 
 const PORT = 3000;
 
