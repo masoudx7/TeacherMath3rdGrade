@@ -1090,7 +1090,7 @@ async function startServer() {
 
 export default app;
 
-if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL && !process.env.SERVERLESS) {
   startServer();
 }
 
