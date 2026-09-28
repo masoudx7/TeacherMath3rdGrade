@@ -14,6 +14,34 @@ import {
 import { getSmsService } from './src/services/smsService';
 import { userStore, maskPhoneNumber } from './src/services/userStore';
 import { questionBankService, COMPACT_QUESTION_SYSTEM_PROMPT } from './src/services/questionBankService';
+import { checkAiQuota, consumeAiQuota, activatePlan } from './src/utils/subscriptionManager';
+
+async function getOrCreateStoredProfile(userId: string) {
+  let stored = await userStore.getProfile(userId);
+  if (!stored) {
+    const nowIso = new Date().toISOString();
+    stored = {
+      userId,
+      hashedPhone: maskPhoneNumber(userId),
+      name: 'دانش‌آموز',
+      avatar: 'fox',
+      stars: 0,
+      xp: 0,
+      level: 1,
+      streakDays: 1,
+      solvedCount: 0,
+      scannedImagesCount: 0,
+      unlockedBadges: [],
+      chapterMastery: {} as any,
+      history: [],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      serverVersion: 1,
+    };
+    await userStore.saveProfile(stored);
+  }
+  return stored;
+}
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
@@ -288,14 +316,51 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Admin Test Subscription Activation Endpoint
+app.post('/api/subscription/activate-test', async (req, res) => {
+  const adminSecretHeader = req.headers['x-admin-secret'] || req.headers['authorization'];
+  const expectedSecret = process.env.ADMIN_SECRET || 'ostad_admin_secret_123';
+
+  if (!adminSecretHeader || (adminSecretHeader !== expectedSecret && adminSecretHeader !== `Bearer ${expectedSecret}`)) {
+    return res.status(403).json({ error: 'دسترسی غیرمجاز (Admin Secret نامعتبر)' });
+  }
+
+  const { userId, planId = 'yearly' } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'شناسه کاربر (userId یا phone) الزامی است.' });
+  }
+
+  try {
+    const stored = await getOrCreateStoredProfile(userId);
+    const updated = activatePlan(stored, planId);
+    await userStore.saveProfile({
+      ...stored,
+      ...updated,
+    });
+    return res.json({ success: true, message: 'اشتراک تستی با موفقیت روی سرور فعال شد.', profile: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'خطا در فعال‌سازی اشتراک: ' + err.message });
+  }
+});
+
 // 1. Chat with Math Tutor API (with verified bank, strict prompt & math validation)
 app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
-  const { prompt, history } = req.body;
+  const { prompt, history, userId: reqUserId } = req.body;
   if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
     return res.status(400).json({ error: 'متن سوال الزامی است.' });
   }
 
   try {
+    const studentId = reqUserId || req.body.phoneNumber || req.headers['x-user-id'] as string || 'guest_student';
+    const storedProfile = await getOrCreateStoredProfile(studentId);
+    const quotaCheck = checkAiQuota(storedProfile);
+    if (!quotaCheck.allowed) {
+      return res.status(402).json({
+        error: 'سهمیه رایگان امروز تمام شد',
+        code: 'QUOTA_EXCEEDED'
+      });
+    }
+
     // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path)
     // اگر سوال دانش‌آموز از مباحث و سوالات پرتکرار و حساس است، پاسخ استاندارد و اعتبارسنجی‌شده بازگردانده می‌شود.
     const safeMatch = findVerifiedSafeResponse(prompt);

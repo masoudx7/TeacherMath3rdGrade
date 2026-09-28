@@ -124,6 +124,9 @@ export interface PricingPlan {
   isPopular?: boolean;
   features: string[];
   ctaText: string;
+  skuBazaar?: string; // TODO: Cafe Bazaar product SKU
+  skuMyket?: string;  // TODO: Myket product SKU
+  zarinpalSku?: string; // TODO: Zarinpal product ID
 }
 
 export interface StudentProfile {

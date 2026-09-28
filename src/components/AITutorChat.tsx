@@ -335,8 +335,29 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
         const res = await fetch('/api/tutor/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: query, history: historyForApi }),
+          body: JSON.stringify({ 
+            prompt: query, 
+            history: historyForApi,
+            userId: profile.phoneNumber || 'guest_student'
+          }),
         });
+
+        if (res.status === 402) {
+          const data = await res.json().catch(() => ({}));
+          if (data.code === 'QUOTA_EXCEEDED') {
+            playSound('wrong', soundEnabled);
+            const limitMsg: ChatMessage = {
+              id: Date.now().toString(),
+              sender: 'tutor',
+              text: 'عزیزم! سهمیه سوالات رایگان امروز روی سرور تمام شده است. 🌟 برای ادامه پرسش و پاسخ نامحدود با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته سوال اضافه بگیری! 🦉💎',
+              timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+            };
+            setMessages(prev => [...prev, limitMsg]);
+            onOpenSubscription();
+            setLoading(false);
+            return;
+          }
+        }
 
         const contentType = res.headers.get('content-type');
         if (res.ok && contentType && contentType.includes('application/json')) {

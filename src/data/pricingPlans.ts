@@ -20,6 +20,9 @@ export const PRICING_PLANS: PricingPlan[] = [
       'کارنامه تحلیلی و ثبت اشتباهات در دفترچه هوشمند',
     ],
     ctaText: 'انتخاب پلن ۱ ماهه',
+    skuBazaar: 'ir.ostaddana.sub.monthly_30d', // TODO: Define SKU in Cafe Bazaar Console
+    skuMyket: 'ostaddana.sub.monthly',       // TODO: Define SKU in Myket Console
+    zarinpalSku: 'zp_sub_monthly_190k',     // TODO: Zarinpal product code
   },
   {
     id: 'quarterly',
@@ -40,6 +43,9 @@ export const PRICING_PLANS: PricingPlan[] = [
       'پشتیبانی آموزشی در طول ۳ ماه',
     ],
     ctaText: 'انتخاب پلن ۳ ماهه',
+    skuBazaar: 'ir.ostaddana.sub.quarterly_90d', // TODO: Define SKU in Cafe Bazaar Console
+    skuMyket: 'ostaddana.sub.quarterly',       // TODO: Define SKU in Myket Console
+    zarinpalSku: 'zp_sub_quarterly_480k',     // TODO: Zarinpal product code
   },
   {
     id: 'yearly',
@@ -61,13 +67,16 @@ export const PRICING_PLANS: PricingPlan[] = [
       'اولویت پاسخگویی و پشتیبانی اختصاصی والدین',
     ],
     ctaText: 'خرید اشتراک طلایی سالانه (بهترین قیمت)',
+    skuBazaar: 'ir.ostaddana.sub.yearly_365d', // TODO: Define SKU in Cafe Bazaar Console
+    skuMyket: 'ostaddana.sub.yearly',         // TODO: Define SKU in Myket Console
+    zarinpalSku: 'zp_sub_yearly_990k',       // TODO: Zarinpal product code
   },
   {
     id: 'ai_pack_50',
     title: 'بسته ۵۰ سوال اضافه استاد دانا',
     subtitle: 'اعتبار هوش مصنوعی بدون تاریخ انقضا',
     badge: 'شارژ بدون انقضا',
-    priceToman: 950000, // 95,000 Toman - wait, 95000
+    priceToman: 95000,
     originalPriceToman: 120000,
     features: [
       '۵۰ اعتبار پرسش تشریحی یا اسکن عکس از تکالیف',
@@ -76,11 +85,11 @@ export const PRICING_PLANS: PricingPlan[] = [
       'قابل استفاده همزمان با نسخه رایگان برنامه',
     ],
     ctaText: 'خرید بسته ۵۰ سوالی',
+    skuBazaar: 'ir.ostaddana.pack.ai50', // TODO: Define SKU in Bazaar
+    skuMyket: 'ostaddana.pack.ai50',     // TODO: Define SKU in Myket
+    zarinpalSku: 'zp_pack_ai50',         // TODO: Zarinpal product code
   },
 ];
-
-// اصلاح قیمت ۹۵,۰۰۰ تومانی بسته سوال
-PRICING_PLANS[3].priceToman = 95000;
 
 export const DISCOUNT_COUPONS: Record<string, { percent: number; label: string }> = {
   BAZAAR: { percent: 20, label: 'تخفیف ویژه کاربران کافه بازار' },

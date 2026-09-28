@@ -83,7 +83,7 @@ export const GamesHub: React.FC<GamesHubProps> = ({
   ];
 
   const isGameLocked = (gameId: string) => {
-    if (['place_value', 'fraction', 'multiplication', 'perimeter', 'regrouping', 'statistics', 'advanced_multiplication'].includes(gameId)) {
+    if (['fraction', 'multiplication', 'perimeter', 'regrouping', 'statistics', 'advanced_multiplication'].includes(gameId)) {
       return !isVip;
     }
     return false;

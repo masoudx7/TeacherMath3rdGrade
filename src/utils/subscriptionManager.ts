@@ -1,7 +1,7 @@
 import { StudentProfile, SubscriptionInfo, SubscriptionPlanId } from '../types';
 import { PRICING_PLANS } from '../data/pricingPlans';
 
-export const FREE_DAILY_AI_LIMIT = 3;
+export const FREE_DAILY_AI_LIMIT = 7;
 
 /**
  * دریافت تاریخ امروز به فرمت YYYY-MM-DD
@@ -45,12 +45,12 @@ export function getRemainingSubscriptionDays(profile?: StudentProfile | null): n
 
 /**
  * بررسی دسترسی به فصل‌های کتاب:
- * - فقط فصل ۱ برای همه رایگان است.
- * - فصل‌های ۲ تا ۸ نیاز به اشتراک طلایی دارند.
+ * - فصل‌های ۱ و ۲ برای همه رایگان است.
+ * - فصل‌های ۳ تا ۸ نیاز به اشتراک طلایی دارند.
  */
 export function canAccessChapter(profile?: StudentProfile | null, chapterNumber?: number): boolean {
-  if (!chapterNumber || chapterNumber <= 1) return true; // فقط فصل ۱ کاملاً رایگان است
-  return isUserVip(profile); // فصل‌های ۲ تا ۸ نیازمند VIP
+  if (!chapterNumber || chapterNumber <= 2) return true; // فصل‌های ۱ و ۲ کاملاً رایگان هستند
+  return isUserVip(profile); // فصل‌های ۳ تا ۸ نیازمند VIP
 }
 
 /**

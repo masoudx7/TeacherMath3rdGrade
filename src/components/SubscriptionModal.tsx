@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StudentProfile, SubscriptionPlanId } from '../types';
 import { PRICING_PLANS, DISCOUNT_COUPONS } from '../data/pricingPlans';
 import { formatToman, activatePlan } from '../utils/subscriptionManager';
+import { getPaymentProvider } from '../services/payment/paymentProviders';
 import { playSound } from '../utils/sound';
 import { 
   Crown, 
@@ -43,7 +44,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState<boolean>(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<'web' | 'bazaar' | 'myket'>('web');
+  const [selectedPlatform, setSelectedPlatform] = useState<'web' | 'bazaar' | 'myket' | 'zarinpal'>('web');
+  const [storeNotice, setStoreNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -61,7 +63,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setCouponLoading(true);
     setCouponError(null);
 
-    // ۱. بررسی از طریق سرور یا فال‌بک لوکال
     try {
       const res = await fetch('/api/subscription/validate-coupon', {
         method: 'POST',
@@ -99,11 +100,23 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const handleConfirmPurchase = async () => {
     setIsProcessing(true);
+    setStoreNotice(null);
     playSound('click', soundEnabled);
 
+    const userId = profile.phoneNumber || 'guest_student';
+    const provider = getPaymentProvider(selectedPlatform);
+
+    // اگر پلتفرم کافه بازار، مایکت یا زرین‌پال باشد، ابتدا متد provider را صدا می‌زنیم
+    if (selectedPlatform !== 'web' && selectedPlatform !== 'manual') {
+      const providerRes = await provider.createPurchase(selectedPlanId, userId);
+      if (providerRes.message) {
+        setStoreNotice(`⚠️ ${providerRes.message} (SKU: ${providerRes.sku || 'N/A'})`);
+      }
+      setIsProcessing(false);
+      return;
+    }
+
     try {
-      // ثبت در سرور
-      const userId = profile.phoneNumber || 'guest_student';
       let updatedProfile = activatePlan(profile, selectedPlanId);
 
       try {
@@ -133,6 +146,33 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       onPurchaseSuccess(updatedProfile);
     } catch (err) {
       console.error('Purchase error:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTestActivation = async () => {
+    setIsProcessing(true);
+    const userId = profile.phoneNumber || 'guest_student';
+    try {
+      const res = await fetch('/api/subscription/activate-test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': 'ostad_admin_secret_123',
+        },
+        body: JSON.stringify({ userId, planId: selectedPlanId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.profile) {
+        playSound('fanfare', soundEnabled);
+        setPurchaseSuccess(true);
+        onPurchaseSuccess(data.profile);
+      } else {
+        alert(data.error || 'خطا در فعال‌سازی تست');
+      }
+    } catch (err: any) {
+      alert('خطای اتصال: ' + err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -241,8 +281,32 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 >
                   🛒 مایکت
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform('zarinpal')}
+                  className={`px-3 py-1.5 rounded-xl border-2 transition-all cursor-pointer ${
+                    selectedPlatform === 'zarinpal'
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  💳 زرین‌پال
+                </button>
               </div>
             </div>
+
+            {storeNotice && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3 text-xs text-amber-900 font-bold flex items-center justify-between gap-2 animate-fade-in">
+                <span>{storeNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setStoreNotice(null)}
+                  className="text-amber-700 hover:text-amber-900 font-black px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* Plans Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -421,9 +485,19 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[11px] text-slate-300 font-medium">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>ضمانت بازگشت وجه تا ۷ روز در صورت عدم رضایت اولیا</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-300 font-medium">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>ضمانت بازگشت وجه تا ۷ روز در صورت عدم رضایت اولیا</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTestActivation}
+                    disabled={isProcessing}
+                    className="text-[11px] text-amber-300 hover:text-amber-200 font-bold underline text-right cursor-pointer"
+                  >
+                    🛠️ [حالت توسعه] فعال‌سازی تست آنی اشتراک
+                  </button>
                 </div>
 
                 <button

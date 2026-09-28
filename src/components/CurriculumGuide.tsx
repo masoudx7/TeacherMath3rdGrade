@@ -133,7 +133,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
         {CHAPTERS.map((chapter: ChapterInfo) => {
           const lessonList = CHAPTER_LESSONS[chapter.id as ChapterId] || [];
           const lessonCount = lessonList.length;
-          const isChapterLocked = chapter.chapterNumber > 1 && !isVip;
+          const isChapterLocked = chapter.chapterNumber > 2 && !isVip;
 
           return (
             <div
@@ -151,7 +151,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                     <span className="text-xs font-black px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
                       فصل {chapter.chapterNumber}
                     </span>
-                    {chapter.chapterNumber <= 1 ? (
+                    {chapter.chapterNumber <= 2 ? (
                       <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
                         رایگان ✨
                       </span>
