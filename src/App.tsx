@@ -14,12 +14,14 @@ import { AIDailyTip } from './components/AIDailyTip';
 import { MistakeNotebook } from './components/MistakeNotebook';
 import { ParentReport } from './components/ParentReport';
 import { MyQuestionsView } from './components/MyQuestionsView';
+import { ParentalConsentModal } from './components/ParentalConsentModal';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/curriculum';
 import { fetchServerProfile, syncProgressToServer } from './utils/syncManager';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
 const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
+const PARENTAL_CONSENT_KEY = 'math_tutor_parental_consent_v1';
 
 const DEFAULT_PROFILE: StudentProfile = {
   phoneNumber: '',
@@ -95,6 +97,17 @@ export default function App() {
   const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
   const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
 
+  // وضعیت و کنترل مودال اجباری رضایت ولی در بدو ورود (حتی حالت مهمان)
+  const [isParentalConsentOpen, setIsParentalConsentOpen] = useState<boolean>(() => {
+    try {
+      const consent = localStorage.getItem(PARENTAL_CONSENT_KEY);
+      return !consent; // اگر هنوز تایید نشده باشد، کل برنامه قفل می‌ماند
+    } catch {
+      return true;
+    }
+  });
+  const [isReviewPrivacyOpen, setIsReviewPrivacyOpen] = useState<boolean>(false);
+
   const [profile, setProfile] = useState<StudentProfile>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -112,9 +125,55 @@ export default function App() {
     return initial;
   });
 
+  // ثبت و ذخیره تاییدیه رضایت والدین و همگام‌سازی با سرور در صورت لاگین
+  const handleAcceptParentalConsent = () => {
+    try {
+      const consentPayload = {
+        accepted: true,
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+      };
+      localStorage.setItem(PARENTAL_CONSENT_KEY, JSON.stringify(consentPayload));
+    } catch (e) {
+      console.error('Error saving consent to localStorage:', e);
+    }
+
+    setIsParentalConsentOpen(false);
+
+    setProfile((prev) => {
+      const updated: StudentProfile = {
+        ...prev,
+        parentalConsentAccepted: true,
+        parentalConsentDate: new Date().toISOString(),
+      };
+      saveAccountToStore(updated);
+      if (updated.phoneNumber && updated.isLoggedIn) {
+        syncProgressToServer(updated).catch(() => {});
+      }
+      return updated;
+    });
+  };
+
   const handleLoginSuccess = async (phoneNumber: string, name?: string, serverProfile?: any) => {
+    const syncConsentFromRemote = (remoteData?: any) => {
+      if (remoteData?.parentalConsentAccepted) {
+        try {
+          localStorage.setItem(
+            PARENTAL_CONSENT_KEY,
+            JSON.stringify({
+              accepted: true,
+              timestamp: remoteData.parentalConsentDate || new Date().toISOString(),
+              version: '1.0',
+            })
+          );
+        } catch {}
+        setIsParentalConsentOpen(false);
+      }
+    };
+
     // ۱. اگر پروفایل از سرور دریافت شده باشد، مستقیماً بازیابی می‌شود
     if (serverProfile) {
+      syncConsentFromRemote(serverProfile);
       const restoredProfile: StudentProfile = {
         ...DEFAULT_PROFILE,
         ...serverProfile,
@@ -132,6 +191,7 @@ export default function App() {
     try {
       const remote = await fetchServerProfile(phoneNumber);
       if (remote) {
+        syncConsentFromRemote(remote);
         const restoredProfile: StudentProfile = {
           ...DEFAULT_PROFILE,
           ...remote,
@@ -414,9 +474,38 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t-2 border-slate-200/80 py-3.5 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-bold mb-16 sm:mb-0">
+      <footer className="bg-white border-t-2 border-slate-200/80 py-3.5 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-bold mb-16 sm:mb-0 flex flex-col sm:flex-row items-center justify-center gap-2">
         <p>برنامه‌ریزی و طراحی ویژه کتاب ریاضی پایه سوم ابتدایی 📚⭐️</p>
+        <span className="hidden sm:inline text-slate-300">•</span>
+        <button
+          type="button"
+          onClick={() => setIsReviewPrivacyOpen(true)}
+          className="text-amber-700 hover:text-amber-800 underline font-bold transition-colors cursor-pointer"
+        >
+          سیاست حفظ حریم خصوصی کودکان و اختیارات اولیا 🛡️
+        </button>
       </footer>
+
+      {/* مودال اجباری رضایت ولی در بدو ورود (قفل کامل اپلیکیشن تا زمان پذیرش) */}
+      <ParentalConsentModal
+        isOpen={isParentalConsentOpen}
+        isMandatoryGate={true}
+        onConsentAccepted={handleAcceptParentalConsent}
+        phoneNumber={profile.phoneNumber}
+        studentName={profile.name}
+        soundEnabled={soundEnabled}
+      />
+
+      {/* مودال مرور اختیاری سیاست حریم خصوصی و اختیارات اولیا از فوتر */}
+      <ParentalConsentModal
+        isOpen={isReviewPrivacyOpen}
+        isMandatoryGate={false}
+        onClose={() => setIsReviewPrivacyOpen(false)}
+        phoneNumber={profile.phoneNumber}
+        studentName={profile.name}
+        onDataWiped={handleLogout}
+        soundEnabled={soundEnabled}
+      />
 
       {/* Profile Edit Modal */}
       {isProfileOpen && (

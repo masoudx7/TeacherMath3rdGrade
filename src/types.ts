@@ -36,6 +36,7 @@ export interface ChatMessage {
 }
 
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+export type QuestionStatus = 'draft' | 'approved' | 'flagged' | 'rejected';
 
 export interface QuizQuestion {
   id: string;
@@ -48,6 +49,13 @@ export interface QuizQuestion {
   hint: string;
   visualType?: 'fraction' | 'grid' | 'clock' | 'blocks' | 'multiplication';
   visualData?: any;
+  status?: QuestionStatus;
+  timesShown?: number;
+  timesCorrect?: number;
+  flaggedReason?: string;
+  flaggedAt?: string;
+  approvedAt?: string;
+  createdAt?: string;
 }
 
 export interface LessonExample {
@@ -106,6 +114,8 @@ export interface StudentProfile {
   scannedImagesCount: number;
   unlockedBadges: string[];
   chapterMastery: Record<ChapterId, number>; // 0 to 100 percentage
+  parentalConsentAccepted?: boolean;
+  parentalConsentDate?: string;
   mistakes?: MistakeRecord[];
   history: {
     date: string;

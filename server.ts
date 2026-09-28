@@ -226,102 +226,111 @@ app.get('/api/health', (req, res) => {
 // 1. Chat with Math Tutor API (with verified bank, strict prompt & math validation)
 app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
   const { prompt, history } = req.body;
-  if (!prompt) {
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
     return res.status(400).json({ error: 'متن سوال الزامی است.' });
   }
 
-  // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path)
-  // اگر سوال دانش‌آموز از مباحث و سوالات پرتکرار و حساس است، پاسخ استاندارد و اعتبارسنجی‌شده بازگردانده می‌شود.
-  const safeMatch = findVerifiedSafeResponse(prompt);
-  if (safeMatch) {
-    const verifiedText = safeMatch.svgDiagram 
-      ? `${safeMatch.socraticResponse}\n\n${safeMatch.svgDiagram}`
-      : safeMatch.socraticResponse;
-    
-    // عبور از لایه اعتبارسنجی
-    const validated = validateAndCorrectTutorResponse(verifiedText);
-    return res.json({ 
-      text: validated.cleanText,
-      isVerified: true,
-      safeTopic: safeMatch.title
-    });
-  }
-
-  const userId = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
-  if (userId) {
-    const rateLimit = await checkRateLimit(userId, 50);
-    if (!rateLimit.success) {
-      const resetTime = new Date(rateLimit.resetTime).toLocaleTimeString('fa-IR');
-      return res.status(429).json({ 
-        error: `تعداد سوالات شما تمام شده. لطفاً بعد از ${resetTime} دوباره تلاش کنید.` 
+  try {
+    // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path)
+    // اگر سوال دانش‌آموز از مباحث و سوالات پرتکرار و حساس است، پاسخ استاندارد و اعتبارسنجی‌شده بازگردانده می‌شود.
+    const safeMatch = findVerifiedSafeResponse(prompt);
+    if (safeMatch) {
+      const verifiedText = safeMatch.svgDiagram 
+        ? `${safeMatch.socraticResponse}\n\n${safeMatch.svgDiagram}`
+        : safeMatch.socraticResponse;
+      
+      // عبور از لایه اعتبارسنجی
+      const validated = validateAndCorrectTutorResponse(verifiedText);
+      return res.json({ 
+        text: validated.cleanText,
+        isVerified: true,
+        safeTopic: safeMatch.title
       });
     }
-  }
 
-  const contents: any[] = [];
-  if (Array.isArray(history) && history.length > 0) {
-    let lastRole: string | null = null;
-    history.forEach((msg: any) => {
-      if (!msg || !msg.text) return;
-      const role = msg.sender === 'user' ? 'user' : 'model';
-      // Gemini contents MUST start with 'user'. Skip leading 'model' messages.
-      if (contents.length === 0 && role === 'model') {
-        return;
-      }
-      if (role !== lastRole) {
-        contents.push({
-          role: role,
-          parts: [{ text: msg.text }],
+    const userId = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'anonymous';
+    if (userId) {
+      const rateLimit = await checkRateLimit(userId, 50);
+      if (!rateLimit.success) {
+        const resetTime = new Date(rateLimit.resetTime).toLocaleTimeString('fa-IR');
+        return res.status(429).json({ 
+          error: `تعداد سوالات شما در این ساعت به پایان رسیده است. لطفاً بعد از ساعت ${resetTime} مجدداً تمرین کنیم قهرمانم! 🌟` 
         });
-        lastRole = role;
       }
-    });
-  }
-
-  // Always ensure valid user message at end
-  if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-    contents[contents.length - 1] = { role: 'user', parts: [{ text: prompt }] };
-  } else {
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-  }
-
-  let responseText = '';
-  let lastError: any = null;
-
-  try {
-    responseText = await generateGeminiContentWithFallback(contents, {
-      systemInstruction: OSTAD_DANA_SYSTEM_INSTRUCTION,
-      temperature: 0.5,
-    });
-  } catch (err: any) {
-    lastError = err;
-  }
-
-  if (responseText) {
-    // ۲. عبور خروجی مدل از لایه اعتبارسنجی و تصحیح محاسبات ریاضی
-    const validated = validateAndCorrectTutorResponse(responseText);
-    return res.json({ 
-      text: validated.cleanText,
-      corrected: validated.corrected,
-      issuesCount: validated.issues.length 
-    });
-  }
-
-  // Fallback to DeepSeek if configured
-  if (process.env.DEEPSEEK_API_KEY) {
-    try {
-      const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
-      const validated = validateAndCorrectTutorResponse(dsText);
-      return res.json({ text: validated.cleanText });
-    } catch (dsErr: any) {
-      console.error('DeepSeek Chat error:', dsErr);
     }
-  }
 
-  // Smart pedagogical fallback when AI API is unavailable
-  const fallbackText = generateFallbackTutorResponse(prompt);
-  const validatedFallback = validateAndCorrectTutorResponse(fallbackText);
-  return res.json({ text: validatedFallback.cleanText });
+    const contents: any[] = [];
+    if (Array.isArray(history) && history.length > 0) {
+      let lastRole: string | null = null;
+      history.forEach((msg: any) => {
+        if (!msg || !msg.text) return;
+        const role = msg.sender === 'user' ? 'user' : 'model';
+        // Gemini contents MUST start with 'user'. Skip leading 'model' messages.
+        if (contents.length === 0 && role === 'model') {
+          return;
+        }
+        if (role !== lastRole) {
+          contents.push({
+            role: role,
+            parts: [{ text: msg.text }],
+          });
+          lastRole = role;
+        }
+      });
+    }
+
+    // Always ensure valid user message at end
+    if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+      contents[contents.length - 1] = { role: 'user', parts: [{ text: prompt }] };
+    } else {
+      contents.push({ role: 'user', parts: [{ text: prompt }] });
+    }
+
+    let responseText = '';
+
+    try {
+      responseText = await generateGeminiContentWithFallback(contents, {
+        systemInstruction: OSTAD_DANA_SYSTEM_INSTRUCTION,
+        temperature: 0.5,
+      });
+    } catch (err: any) {
+      console.warn('[Gemini Chat Error]:', err?.message || err);
+    }
+
+    if (responseText && responseText.trim()) {
+      // ۲. عبور خروجی مدل از لایه اعتبارسنجی و تصحیح محاسبات ریاضی
+      const validated = validateAndCorrectTutorResponse(responseText);
+      return res.json({ 
+        text: validated.cleanText,
+        corrected: validated.corrected,
+        issuesCount: validated.issues.length 
+      });
+    }
+
+    // Fallback to DeepSeek if configured
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
+        if (dsText && dsText.trim()) {
+          const validated = validateAndCorrectTutorResponse(dsText);
+          return res.json({ text: validated.cleanText });
+        }
+      } catch (dsErr: any) {
+        console.warn('[DeepSeek Chat Error]:', dsErr?.message || dsErr);
+      }
+    }
+
+    // ۳. فال‌بک امن و هوشمند کودکانه هنگام در دسترس نبودن یا خطای مدل
+    const fallbackText = generateFallbackTutorResponse(prompt);
+    const validatedFallback = validateAndCorrectTutorResponse(fallbackText);
+    return res.json({ text: validatedFallback.cleanText, isFallback: true });
+  } catch (criticalErr: any) {
+    console.error('[Critical Tutor Chat Exception]:', criticalErr);
+    // در هر شرایط بحرانی، پاسخ مهربان و آموزنده کودکانه بازمی‌گردد، نه خطای انگلیسی
+    const safeFallback = generateFallbackTutorResponse(prompt);
+    const validatedFallback = validateAndCorrectTutorResponse(safeFallback);
+    return res.json({ text: validatedFallback.cleanText, isFallback: true });
+  }
 });
 
 // 2. Solve Image Math Problem API (OCR & Step-by-Step)
@@ -997,6 +1006,115 @@ app.get('/api/questions', async (req, res) => {
   } catch (err: any) {
     console.error('Error fetching questions:', err);
     res.status(500).json({ error: 'خطا در دریافت سوالات' });
+  }
+});
+
+// دریافت سوالات تصادفی با اولویت سوالات کمتر دیده شده (Weighted Random)
+app.get('/api/questions/random', async (req, res) => {
+  try {
+    const chapterId = (req.query.chapterId as any) || 'patterns';
+    const difficulty = (req.query.difficulty as any) || undefined;
+    const count = parseInt(req.query.count as string, 10) || 5;
+
+    const questions = await questionBankService.getRandomQuestions(chapterId, difficulty, count);
+    res.json({
+      success: true,
+      chapterId,
+      difficulty,
+      count: questions.length,
+      questions,
+    });
+  } catch (err: any) {
+    console.error('Error fetching random questions:', err);
+    res.status(500).json({ error: 'خطا در دریافت سوالات تصادفی' });
+  }
+});
+
+// ثبت عملکرد پاسخ دانش‌آموز جهت سنجش کیفیت و ضریب سختی
+app.post('/api/questions/answer', async (req, res) => {
+  try {
+    const { questionId, isCorrect } = req.body;
+    if (questionId) {
+      await questionBankService.recordAnswer(questionId, Boolean(isCorrect));
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'خطا در ثبت پاسخ' });
+  }
+});
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'ostad_admin_2026';
+
+// گزارش اشکال در سوال توسط کاربر یا دانش‌آموز (قرنطینه و خروج فوری از آزمون)
+app.post('/api/questions/:id/flag', async (req, res) => {
+  try {
+    const questionId = req.params.id;
+    const { reason = 'گزارش اشکال توسط کاربر' } = req.body;
+
+    const result = await questionBankService.flagQuestion(questionId, reason);
+    if (!result) {
+      return res.status(404).json({ error: 'سوال مورد نظر یافت نشد' });
+    }
+
+    res.json({
+      success: true,
+      message: 'سوال با موفقیت گزارش و موقتاً از چرخه آزمون خارج گردید.',
+      questionId,
+    });
+  } catch (err: any) {
+    console.error('Error flagging question:', err);
+    res.status(500).json({ error: 'خطا در ثبت گزارش سوال' });
+  }
+});
+
+// تایید کیفیت سوال توسط ادمین با کلید ADMIN_SECRET در هدر
+app.post('/api/questions/:id/approve', async (req, res) => {
+  try {
+    const secret = req.headers['x-admin-secret'] || req.headers['authorization'];
+    if (secret !== ADMIN_SECRET && secret !== `Bearer ${ADMIN_SECRET}`) {
+      return res.status(401).json({ error: 'دسترسی غیرمجاز. کلید ادمین معتبر نیست.' });
+    }
+
+    const questionId = req.params.id;
+    const result = await questionBankService.approveQuestion(questionId);
+    if (!result) {
+      return res.status(404).json({ error: 'سوال مورد نظر یافت نشد' });
+    }
+
+    res.json({
+      success: true,
+      message: 'سوال با موفقیت تایید و به بانک رسمی اضافه شد.',
+      question: result,
+    });
+  } catch (err: any) {
+    console.error('Error approving question:', err);
+    res.status(500).json({ error: 'خطا در تایید سوال' });
+  }
+});
+
+// رد سوال توسط ادمین با کلید ADMIN_SECRET در هدر
+app.post('/api/questions/:id/reject', async (req, res) => {
+  try {
+    const secret = req.headers['x-admin-secret'] || req.headers['authorization'];
+    if (secret !== ADMIN_SECRET && secret !== `Bearer ${ADMIN_SECRET}`) {
+      return res.status(401).json({ error: 'دسترسی غیرمجاز. کلید ادمین معتبر نیست.' });
+    }
+
+    const questionId = req.params.id;
+    const { reason = 'رد توسط کارشناس محتوا' } = req.body;
+    const result = await questionBankService.rejectQuestion(questionId, reason);
+    if (!result) {
+      return res.status(404).json({ error: 'سوال مورد نظر یافت نشد' });
+    }
+
+    res.json({
+      success: true,
+      message: 'سوال با موفقیت رد شد.',
+      questionId,
+    });
+  } catch (err: any) {
+    console.error('Error rejecting question:', err);
+    res.status(500).json({ error: 'خطا در رد سوال' });
   }
 });
 

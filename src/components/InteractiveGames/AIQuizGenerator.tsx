@@ -5,7 +5,8 @@ import { playSound } from '../../utils/sound';
 import { useQuestionBank } from '../../hooks/useQuestionBank';
 import { saveMistake } from '../../utils/mistakeStore';
 import confetti from 'canvas-confetti';
-import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star } from 'lucide-react';
+import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star, Flag } from 'lucide-react';
+import { ReportQuestionModal } from '../ReportQuestionModal';
 
 interface AIQuizGeneratorProps {
   soundEnabled: boolean;
@@ -42,6 +43,15 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
   const [score, setScore] = useState<number>(0);
   const [showHint, setShowHint] = useState<boolean>(false);
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+
+  const handleQuestionFlagged = (flaggedId: string) => {
+    // حذف فوری سوال پرچم‌گذاری شده از صفحه و ادامه با سوالات باقیمانده
+    setQuestions((prev) => prev.filter((q) => q.id !== flaggedId));
+    setIsAnswered(false);
+    setSelectedOpt(null);
+    setShowHint(false);
+  };
 
   // هماهنگی لیست سوالات کوئیز با سوالات بانک
   useEffect(() => {
@@ -195,9 +205,10 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
             {currentQ.question}
           </div>
 
-          {/* Hint Toggle */}
-          <div>
+          {/* Hint & Report Action Row */}
+          <div className="flex items-center justify-between gap-2">
             <button
+              type="button"
               onClick={() => setShowHint(!showHint)}
               className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             >
@@ -205,12 +216,22 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
               <span>{showHint ? 'پنهان کردن راهنمایی' : 'راهنمایی کوچک معلم'}</span>
             </button>
 
-            {showHint && (
-              <div className="mt-2 bg-amber-100/70 border border-amber-300 text-amber-900 rounded-2xl p-3 text-xs font-bold animate-fadeIn">
-                💡 {currentQ.hint}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl border border-transparent hover:border-rose-200 transition-all flex items-center gap-1.5 font-bold cursor-pointer"
+              title="گزارش اشکال یا خطا در سوال"
+            >
+              <Flag className="w-3.5 h-3.5 text-rose-500" />
+              <span>گزارش سوال ⚠️</span>
+            </button>
           </div>
+
+          {showHint && (
+            <div className="mt-2 bg-amber-100/70 border border-amber-300 text-amber-900 rounded-2xl p-3 text-xs font-bold animate-fadeIn">
+              💡 {currentQ.hint}
+            </div>
+          )}
 
           {/* Options */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -262,6 +283,18 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
           )}
         </div>
       ) : null}
+
+      {/* Report Question Modal */}
+      {currentQ && (
+        <ReportQuestionModal
+          isOpen={isReportModalOpen}
+          questionId={currentQ.id}
+          questionText={currentQ.question}
+          onClose={() => setIsReportModalOpen(false)}
+          onFlagged={handleQuestionFlagged}
+          soundEnabled={soundEnabled}
+        />
+      )}
     </div>
   );
 };
