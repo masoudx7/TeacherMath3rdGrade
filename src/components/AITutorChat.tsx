@@ -22,13 +22,20 @@ import {
   ChevronUp,
   Sparkles,
   Smile,
-  X
+  X,
+  Crown,
+  Zap
 } from 'lucide-react';
+import { StudentProfile } from '../types';
+import { checkAiQuota, consumeAiQuota } from '../utils/subscriptionManager';
 
 interface AITutorChatProps {
   soundEnabled: boolean;
   onAddStars: (count: number) => void;
   onIncrementSolved: () => void;
+  profile: StudentProfile;
+  onUpdateProfile: (updated: StudentProfile) => void;
+  onOpenSubscription: () => void;
 }
 
 interface QuestionCategory {
@@ -42,9 +49,17 @@ const STORAGE_KEY = 'ostad_dana_chat_history_v2';
 const MAX_LOCALSTORAGE_MESSAGES = 100;
 const MAX_HISTORY_MESSAGES = 20;
 
-export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddStars, onIncrementSolved }) => {
+export const AITutorChat: React.FC<AITutorChatProps> = ({ 
+  soundEnabled, 
+  onAddStars, 
+  onIncrementSolved,
+  profile,
+  onUpdateProfile,
+  onOpenSubscription
+}) => {
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
   const [totalQ, setTotalQ] = useState(0);
+  const aiQuota = checkAiQuota(profile);
 
   useEffect(() => {
     getAllQuestions().then(data => {
@@ -274,10 +289,29 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
     const query = (textToSend || input).trim();
     if (!query || loading) return;
 
+    // بررسی سهمیه هوش مصنوعی
+    const quota = checkAiQuota(profile);
+    if (!quota.allowed) {
+      playSound('wrong', soundEnabled);
+      const limitMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: 'tutor',
+        text: 'عزیزم! سهمیه ۳ سوال رایگان امروزت تمام شده است. 🌟 برای حل نامحدود تکالیف و پرسیدن همه سوالات با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته ۵۰ سوالی بگیری! 🦉💎',
+        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, limitMsg]);
+      onOpenSubscription();
+      return;
+    }
+
     playSound('click', soundEnabled);
     setInput('');
     stopPersianSpeech();
     setSpeakingId(null);
+
+    // ثبت کسر سهمیه
+    const updatedProf = consumeAiQuota(profile);
+    onUpdateProfile(updatedProf);
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -425,6 +459,32 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({ soundEnabled, onAddSta
 
         {/* Header Actions */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* AI Quota Indicator */}
+          {aiQuota.isVip ? (
+            <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-[10px] sm:text-xs font-black shadow-xs">
+              <Crown className="w-3 h-3 text-amber-600 fill-amber-400 animate-bounce" />
+              <span className="hidden sm:inline">طلایی (نامحدود)</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                playSound('pop', soundEnabled);
+                onOpenSubscription();
+              }}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-[10px] sm:text-xs font-black transition-all cursor-pointer shadow-xs"
+              title="مشاهده اشتراک طلایی و بازگشایی تمامی فصل‌ها"
+            >
+              <Zap className="w-3 h-3 text-amber-600" />
+              <span>{aiQuota.remainingDaily} از ۳ رایگان</span>
+              {aiQuota.extraQuestions > 0 && (
+                <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1 rounded-xs">
+                  +{aiQuota.extraQuestions}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Daily Practice Button */}
           <button
             onClick={() => {

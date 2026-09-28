@@ -100,6 +100,32 @@ export interface MistakeRecord {
   retryCount?: number;
 }
 
+export type SubscriptionPlanId = 'free' | 'monthly' | 'quarterly' | 'yearly' | 'ai_pack_50';
+
+export interface SubscriptionInfo {
+  plan: SubscriptionPlanId;
+  isVip: boolean;
+  expiresAt: string | null; // ISO Date string, or null if free
+  startDate?: string;
+  extraAiQuestions: number; // additional AI questions bought (e.g. +50 pack)
+  dailyAiUsed: number;
+  lastAiDate: string; // YYYY-MM-DD
+}
+
+export interface PricingPlan {
+  id: SubscriptionPlanId;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  priceToman: number;
+  originalPriceToman?: number;
+  monthlyEquivalentToman?: number;
+  durationDays?: number;
+  isPopular?: boolean;
+  features: string[];
+  ctaText: string;
+}
+
 export interface StudentProfile {
   phoneNumber?: string;
   isLoggedIn?: boolean;
@@ -117,6 +143,7 @@ export interface StudentProfile {
   parentalConsentAccepted?: boolean;
   parentalConsentDate?: string;
   mistakes?: MistakeRecord[];
+  subscription?: SubscriptionInfo;
   history: {
     date: string;
     chapterId: ChapterId;

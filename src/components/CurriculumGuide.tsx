@@ -18,7 +18,9 @@ import {
   ChevronRight,
   Flame,
   Star,
-  PlayCircle
+  PlayCircle,
+  Crown,
+  Lock
 } from 'lucide-react';
 
 interface CurriculumGuideProps {
@@ -26,6 +28,8 @@ interface CurriculumGuideProps {
   onSelectChapterForQuiz: (chapterId: string) => void;
   onSelectChapterForGame?: (chapterId: ChapterId) => void;
   onAddStars?: (stars: number) => void;
+  isVip?: boolean;
+  onOpenSubscription?: () => void;
 }
 
 export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
@@ -33,6 +37,8 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   onSelectChapterForQuiz,
   onSelectChapterForGame,
   onAddStars,
+  isVip = false,
+  onOpenSubscription,
 }) => {
   const [selectedLessonChapter, setSelectedLessonChapter] = useState<ChapterInfo | null>(null);
   const [selectedLessonIndex, setSelectedLessonIndex] = useState<number>(0);
@@ -127,11 +133,16 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
         {CHAPTERS.map((chapter: ChapterInfo) => {
           const lessonList = CHAPTER_LESSONS[chapter.id as ChapterId] || [];
           const lessonCount = lessonList.length;
+          const isChapterLocked = chapter.chapterNumber > 1 && !isVip;
 
           return (
             <div
               key={chapter.id}
-              className="bg-white border-4 border-[#FFEAA7] hover:border-[#FDCB6E] rounded-[2rem] p-5 sm:p-6 shadow-[0_6px_0_0_#E0E0E0] transition-all space-y-4 flex flex-col justify-between"
+              className={`bg-white rounded-[2rem] p-5 sm:p-6 shadow-[0_6px_0_0_#E0E0E0] transition-all space-y-4 flex flex-col justify-between ${
+                isChapterLocked
+                  ? 'border-4 border-amber-200/90 hover:border-amber-400 bg-gradient-to-b from-white to-amber-50/20'
+                  : 'border-4 border-[#FFEAA7] hover:border-[#FDCB6E]'
+              }`}
             >
               <div className="space-y-3.5">
                 {/* Top Badge & Number */}
@@ -140,8 +151,23 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                     <span className="text-xs font-black px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
                       فصل {chapter.chapterNumber}
                     </span>
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
-                      {lessonCount} درس‌نامه کامل
+                    {chapter.chapterNumber <= 1 ? (
+                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                        رایگان ✨
+                      </span>
+                    ) : isChapterLocked ? (
+                      <span className="text-[11px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-amber-700" />
+                        <span>ویژه طلایی</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Crown className="w-3 h-3 text-amber-600 fill-amber-400" />
+                        <span>طلایی فعال</span>
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full hidden sm:inline">
+                      {lessonCount} درس‌نامه
                     </span>
                   </div>
                   <span className="text-2xl">{chapter.gameIcon || '📐'}</span>
@@ -172,7 +198,14 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                 {/* Interactive Game Connection Banner */}
                 {chapter.gameTitle && (
                   <div 
-                    onClick={() => handleGoToGame(chapter.id)}
+                    onClick={() => {
+                      if (isChapterLocked) {
+                        playSound('wrong', soundEnabled);
+                        if (onOpenSubscription) onOpenSubscription();
+                      } else {
+                        handleGoToGame(chapter.id);
+                      }
+                    }}
                     className="bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group"
                   >
                     <div className="flex items-center gap-2.5">
@@ -194,34 +227,49 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => handleOpenLessons(chapter)}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="مشاهده تدریس، فرمول، مثال‌ها و تمرین‌ها"
-                >
-                  <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>درس‌نامه و مثال‌ها</span>
-                </button>
+              {isChapterLocked ? (
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      playSound('pop', soundEnabled);
+                      if (onOpenSubscription) onOpenSubscription();
+                    }}
+                    className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black py-3 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                  >
+                    <Crown className="w-4 h-4 text-white fill-white" />
+                    <span>بازگشایی فصل {chapter.chapterNumber} با اشتراک طلایی 👑</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => handleOpenLessons(chapter)}
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    title="مشاهده تدریس، فرمول، مثال‌ها و تمرین‌ها"
+                  >
+                    <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>درس‌نامه و مثال‌ها</span>
+                  </button>
 
-                <button
-                  onClick={() => handleGoToGame(chapter.id)}
-                  className="bg-amber-50 hover:bg-amber-100 text-amber-900 border-2 border-amber-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="ورود مستقیم به بازی و دست‌ورزی تعاملی این فصل"
-                >
-                  <Gamepad2 className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>بازی و دست‌ورزی 🎮</span>
-                </button>
+                  <button
+                    onClick={() => handleGoToGame(chapter.id)}
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-900 border-2 border-amber-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    title="ورود مستقیم به بازی و دست‌ورزی تعاملی این فصل"
+                  >
+                    <Gamepad2 className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>بازی و دست‌ورزی 🎮</span>
+                  </button>
 
-                <button
-                  onClick={() => handleGoToQuiz(chapter.id)}
-                  className="bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none"
-                  title="شرکت در آزمون ۴ گزینه‌ای با نمره و ستاره"
-                >
-                  <Sparkles className="w-4 h-4 text-[#FFEAA7] shrink-0" />
-                  <span>آزمون تستی</span>
-                </button>
-              </div>
+                  <button
+                    onClick={() => handleGoToQuiz(chapter.id)}
+                    className="bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none"
+                    title="شرکت در آزمون ۴ گزینه‌ای با نمره و ستاره"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#FFEAA7] shrink-0" />
+                    <span>آزمون تستی</span>
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

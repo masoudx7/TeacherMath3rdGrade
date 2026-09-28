@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -39,8 +40,8 @@ const PORT = 3000;
 
 // High-availability Gemini Models Hierarchy (Tuned for Persian 3rd grade math reasoning & OCR)
 const PRIMARY_MODELS = [
-  'gemini-3.8-flash',         // Tier 1: Modern default for interactive instruction & text
-  'gemini-3.1-flash-lite',    // Tier 2: Ultra-low latency & high RPM throughput
+  'gemini-3.1-flash-lite',    // Tier 1: Ultra-low latency & high RPM throughput (high availability)
+  'gemini-3.8-flash',         // Tier 2: Modern default for interactive instruction & text
   'gemini-flash-latest',      // Tier 3: Stable floating alias
   'gemini-3.1-pro-preview',   // Tier 4: Complex STEM/geometry & deep reasoning fallback
 ];
@@ -202,12 +203,73 @@ async function callDeepSeekChat(systemInstruction: string, messages: any[], user
   return data.choices?.[0]?.message?.content || 'پاسخی از دیپ‌سیک دریافت نشد.';
 }
 
+// Helper function for optional Groq API fallback (Tier 3 Emergency AI)
+export async function generateGroqContent(
+  prompt: string | any[],
+  systemInstruction?: string
+): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY تنظیم نشده است.');
+
+  const model = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
+  const formattedMessages: any[] = [];
+
+  if (systemInstruction) {
+    formattedMessages.push({ role: 'system', content: systemInstruction });
+  }
+
+  if (Array.isArray(prompt)) {
+    prompt.forEach((m) => {
+      if (m && m.parts && m.parts[0]?.text) {
+        formattedMessages.push({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.parts[0].text,
+        });
+      } else if (m && m.role && m.content) {
+        formattedMessages.push(m);
+      }
+    });
+  } else if (typeof prompt === 'string') {
+    formattedMessages.push({ role: 'user', content: prompt });
+  }
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: formattedMessages,
+      max_tokens: 450,
+      temperature: 0.6,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`خطای سرویس Groq (${res.status}): ${errorText}`);
+  }
+
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content || typeof content !== 'string') {
+    throw new Error('پاسخ معتبری از Groq دریافت نشد.');
+  }
+  return content;
+}
+
 // Health endpoint with diagnostics
 app.get('/api/health', (req, res) => {
   const geminiKey = process.env.GEMINI_API_KEY;
   const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
+  const kavenegarKey = process.env.KAVENEGAR_API_KEY;
   const geminiConfigured = Boolean(geminiKey && geminiKey.trim().length > 0);
   const deepseekConfigured = Boolean(deepseekKey && deepseekKey.trim().length > 0);
+  const groqConfigured = Boolean(groqKey && groqKey.trim().length > 0);
+  const kavenegarConfigured = Boolean(kavenegarKey && kavenegarKey.trim().length > 10);
 
   res.json({
     status: 'ok',
@@ -215,6 +277,9 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     geminiConfigured,
     deepseekConfigured,
+    groqConfigured,
+    groqModel: groqConfigured ? (process.env.GROQ_MODEL || 'qwen/qwen3.8-27b') : null,
+    kavenegarConfigured,
     models: PRIMARY_MODELS,
     cachedDailyTipDate: dailyTipCache?.date || null,
     message: geminiConfigured
@@ -313,10 +378,23 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
         const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
         if (dsText && dsText.trim()) {
           const validated = validateAndCorrectTutorResponse(dsText);
-          return res.json({ text: validated.cleanText });
+          return res.json({ text: validated.cleanText, provider: 'deepseek' });
         }
       } catch (dsErr: any) {
         console.warn('[DeepSeek Chat Error]:', dsErr?.message || dsErr);
+      }
+    }
+
+    // Fallback to Groq if configured (Tier 3 Emergency AI)
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const groqText = await generateGroqContent(contents, OSTAD_DANA_SYSTEM_INSTRUCTION);
+        if (groqText && groqText.trim()) {
+          const validated = validateAndCorrectTutorResponse(groqText);
+          return res.json({ text: validated.cleanText, provider: 'groq' });
+        }
+      } catch (groqErr: any) {
+        console.warn('[Groq Chat Error]:', groqErr?.message || groqErr);
       }
     }
 
@@ -790,7 +868,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
     otpStore.set(cleanPhone, { code, expiresAt, attempts: 0 });
 
     // ارسال از طریق درگاه پیامک (کاوه‌نگار یا فال‌بک توسعه)
-    const smsResult = await smsService.sendOtp(cleanPhone, code);
+    const activeSmsService = getSmsService();
+    const smsResult = await activeSmsService.sendOtp(cleanPhone, code);
     if (!smsResult.success) {
       console.warn('[AUTH OTP] SMS gateway returned issue:', smsResult.error);
     }
@@ -982,6 +1061,206 @@ app.delete('/api/user/data', async (req, res) => {
   } catch (err: any) {
     console.error('Error wiping user data:', err);
     res.status(500).json({ error: 'خطا در پاک‌سازی داده‌های کاربر' });
+  }
+});
+
+// ==========================================
+// Monetization & Subscription Endpoints (پرداخت و اشتراک ویژه)
+// ==========================================
+
+const SERVER_PRICING_PLANS = [
+  {
+    id: 'monthly',
+    title: 'اشتراک ۱ ماهه',
+    subtitle: 'آزمایشی و شب امتحان',
+    badge: 'شروع یادگیری',
+    priceToman: 190000,
+    originalPriceToman: 240000,
+    monthlyEquivalentToman: 190000,
+    durationDays: 30,
+    isPopular: false,
+    features: [
+      'بازگشایی تمامی ۸ فصل کتاب ریاضی سوم دبستان',
+      'دسترسی کامل به فصل‌های ۴ تا ۸ (ضرب، مساحت، جمع تکنیکی)',
+      'پرسش و پاسخ نامحدود با معلم هوشمند (استاد دانا)',
+      'اسکن و تحلیل نامحدود عکس تکالیف و دست‌نویس',
+      'دسترسی به تمامی بازی‌های تعاملی و آزمون‌های هوشمند',
+      'کارنامه تحلیلی و ثبت اشتباهات در دفترچه هوشمند',
+    ],
+    ctaText: 'انتخاب پلن ۱ ماهه',
+  },
+  {
+    id: 'quarterly',
+    title: 'اشتراک ۳ ماهه',
+    subtitle: 'پکیج یک فصل تحصیلی (ترم)',
+    badge: 'اقتصادی و محبوب ⭐️',
+    priceToman: 480000,
+    originalPriceToman: 570000,
+    monthlyEquivalentToman: 160000,
+    durationDays: 90,
+    isPopular: false,
+    features: [
+      'تمام امکانات اشتراک ۱ ماهه با ۱۵٪ تخفیف ویژه',
+      'معادل فقط ۱۶۰,۰۰۰ تومان در هر ماه',
+      'پوشش کامل امتحانات ترم اول یا ترم دوم مدارس',
+      'تحلیل جامع نقاط ضعف و قوت در کارنامه اولیا',
+      'رفع اشکال نامحدود سوالات اشتباهات دانش‌آموز',
+      'پشتیبانی آموزشی در طول ۳ ماه',
+    ],
+    ctaText: 'انتخاب پلن ۳ ماهه',
+  },
+  {
+    id: 'yearly',
+    title: 'اشتراک طلایی ۱ ساله',
+    subtitle: 'همیار کل سال تحصیلی (مهر تا خرداد)',
+    badge: '🔥 پرفروش‌ترین (پیشنهاد ویژه)',
+    priceToman: 990000,
+    originalPriceToman: 2280000,
+    monthlyEquivalentToman: 82500,
+    durationDays: 365,
+    isPopular: true,
+    features: [
+      'بیش از ۵۵٪ تخفیف شگفت‌انگیز (فقط ۸۲ هزار تومان در ماه!)',
+      'دسترسی نامحدود ۳۶۵ روزه تا پایان سال تحصیلی و کارنامه نهایی',
+      'کمتر از هزینه خرید ۲ جلد کتاب کمک‌آموزشی ساده',
+      'معلم خصوصی هوش مصنوعی ۲۴ ساعته در خانه',
+      'تولید بی‌نهایت آزمون شبیه‌ساز امتحانات نهایی با پاسخ تشریحی',
+      'امکان خروجی فایل PDF کارنامه تحلیلی جهت ارائه به معلم مدرسه',
+      'اولویت پاسخگویی و پشتیبانی اختصاصی والدین',
+    ],
+    ctaText: 'خرید اشتراک طلایی سالانه (بهترین قیمت)',
+  },
+  {
+    id: 'ai_pack_50',
+    title: 'بسته ۵۰ سوال اضافه استاد دانا',
+    subtitle: 'اعتبار هوش مصنوعی بدون تاریخ انقضا',
+    badge: 'شارژ بدون انقضا',
+    priceToman: 95000,
+    originalPriceToman: 120000,
+    features: [
+      '۵۰ اعتبار پرسش تشریحی یا اسکن عکس از تکالیف',
+      'بدون محدودیت زمانی و بدون انقضا (تا آخرین سوال باقی می‌ماند)',
+      'مناسب والدینی که فقط برای حل تمرینات سخت روزانه نیاز دارند',
+      'قابل استفاده همزمان با نسخه رایگان برنامه',
+    ],
+    ctaText: 'خرید بسته ۵۰ سوالی',
+  },
+];
+
+const SERVER_DISCOUNT_COUPONS: Record<string, { percent: number; label: string }> = {
+  BAZAAR: { percent: 20, label: 'تخفیف ویژه کاربران کافه بازار' },
+  MYKET: { percent: 20, label: 'تخفیف ویژه کاربران مایکت' },
+  OSTAD: { percent: 25, label: 'هدیه ویژه استاد دانا' },
+  MATH20: { percent: 20, label: 'تخفیف تلاش و نمره ۲۰' },
+  NOROOZ: { percent: 30, label: 'جشنواره عیدانه' },
+  GOLDEN: { percent: 35, label: 'تخفیف دانش‌آموز ممتاز' },
+};
+
+app.get('/api/subscription/plans', (req, res) => {
+  res.json({
+    success: true,
+    plans: SERVER_PRICING_PLANS,
+    baseDollarRateToman: 240000,
+    activeFestival: 'تخفیف ویژه سال تحصیلی ۱۴۰۴-۱۴۰۵',
+  });
+});
+
+app.post('/api/subscription/validate-coupon', (req, res) => {
+  const { code, planId } = req.body;
+  const cleanCode = (code || '').trim().toUpperCase();
+  const coupon = SERVER_DISCOUNT_COUPONS[cleanCode];
+
+  if (!coupon) {
+    return res.status(400).json({ error: 'کد تخفیف وارد شده معتبر نیست یا منقضی شده است.' });
+  }
+
+  const plan = SERVER_PRICING_PLANS.find(p => p.id === planId);
+  const basePrice = plan ? plan.priceToman : 0;
+  const discountAmount = Math.round((basePrice * coupon.percent) / 100);
+  const finalPrice = Math.max(0, basePrice - discountAmount);
+
+  res.json({
+    valid: true,
+    code: cleanCode,
+    percent: coupon.percent,
+    label: coupon.label,
+    originalPrice: basePrice,
+    discountAmount,
+    finalPrice,
+  });
+});
+
+app.post('/api/subscription/purchase', async (req, res) => {
+  try {
+    const { userId, planId, couponCode, platform } = req.body;
+    if (!planId) {
+      return res.status(400).json({ error: 'طرح اشتراک مشخص نشده است.' });
+    }
+
+    const plan = SERVER_PRICING_PLANS.find(p => p.id === planId);
+    if (!plan) {
+      return res.status(400).json({ error: 'طرح انتخابی معتبر نیست.' });
+    }
+
+    const targetUserId = (userId || 'guest_student').trim();
+    let userProfile = await userStore.getProfile(targetUserId);
+
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const txnId = `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+    let newSub: any;
+
+    if (planId === 'ai_pack_50') {
+      const currentSub = userProfile?.subscription;
+      newSub = {
+        plan: currentSub?.plan || 'free',
+        isVip: currentSub?.isVip || false,
+        expiresAt: currentSub?.expiresAt || null,
+        extraAiQuestions: (currentSub?.extraAiQuestions || 0) + 50,
+        dailyAiUsed: currentSub?.dailyAiUsed || 0,
+        lastAiDate: currentSub?.lastAiDate || today,
+      };
+    } else {
+      let baseTime = now.getTime();
+      if (userProfile?.subscription?.isVip && userProfile.subscription.expiresAt) {
+        const currentExp = new Date(userProfile.subscription.expiresAt).getTime();
+        if (currentExp > baseTime) {
+          baseTime = currentExp;
+        }
+      }
+      const durationDays = plan.durationDays || 30;
+      const newExpiresAt = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+      newSub = {
+        plan: planId,
+        isVip: true,
+        expiresAt: newExpiresAt,
+        startDate: now.toISOString(),
+        extraAiQuestions: userProfile?.subscription?.extraAiQuestions || 0,
+        dailyAiUsed: 0,
+        lastAiDate: today,
+      };
+    }
+
+    if (userProfile) {
+      userProfile.subscription = newSub;
+      userProfile.updatedAt = now.toISOString();
+      await userStore.saveProfile(userProfile);
+    }
+
+    res.json({
+      success: true,
+      transactionId: txnId,
+      platform: platform || 'web',
+      planId,
+      subscription: newSub,
+      profile: userProfile,
+      message: 'اشتراک با موفقیت فعال شد. به جمع مشترکین طلایی آموزگار خوش آمدید! 🌟',
+    });
+  } catch (err: any) {
+    console.error('Error processing subscription purchase:', err);
+    res.status(500).json({ error: 'خطا در فعال‌سازی اشتراک' });
   }
 });
 

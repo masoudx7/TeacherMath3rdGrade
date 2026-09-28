@@ -160,6 +160,23 @@ export class MemoryOrKvUserStore implements IUserStore {
       }
     }
 
+    // ادغام وضعیت اشتراک و دسترسی VIP
+    let mergedSubscription = existing.subscription || clientProfile.subscription;
+    if (existing.subscription && clientProfile.subscription) {
+      const existingVip = existing.subscription.isVip;
+      const clientVip = clientProfile.subscription.isVip;
+      if (existingVip && !clientVip) {
+        mergedSubscription = existing.subscription;
+      } else if (!existingVip && clientVip) {
+        mergedSubscription = clientProfile.subscription;
+      } else {
+        // هر دو دارای اشتراک هستند، انقضای بیشتر انتخاب می‌شود
+        const eExp = existing.subscription.expiresAt ? new Date(existing.subscription.expiresAt).getTime() : 0;
+        const cExp = clientProfile.subscription.expiresAt ? new Date(clientProfile.subscription.expiresAt).getTime() : 0;
+        mergedSubscription = eExp >= cExp ? existing.subscription : clientProfile.subscription;
+      }
+    }
+
     const mergedProfile: StoredUserProfile = {
       ...existing,
       name: clientProfile.name || existing.name,
@@ -172,6 +189,7 @@ export class MemoryOrKvUserStore implements IUserStore {
       streakDays: mergedStreak,
       unlockedBadges: mergedBadges,
       chapterMastery: mergedMastery as any,
+      subscription: mergedSubscription,
       updatedAt: nowIso,
       serverVersion: (existing.serverVersion || 0) + 1,
     };

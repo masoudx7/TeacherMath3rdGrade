@@ -18,8 +18,10 @@ import {
   ShieldCheck,
   Trophy,
   BookMarked,
-  Users
+  Users,
+  Crown
 } from 'lucide-react';
+import { isUserVip, getRemainingSubscriptionDays } from '../utils/subscriptionManager';
 
 interface NavbarProps {
   activeTab: string;
@@ -27,6 +29,7 @@ interface NavbarProps {
   profile: StudentProfile;
   onOpenProfile: () => void;
   onOpenPhoneAuth: () => void;
+  onOpenSubscription: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (val: boolean) => void;
 }
@@ -37,10 +40,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   profile,
   onOpenProfile,
   onOpenPhoneAuth,
+  onOpenSubscription,
   soundEnabled,
   setSoundEnabled,
 }) => {
   const selectedAvatar = AVATARS.find(a => a.id === profile.avatar) || AVATARS[0];
+  const isVip = isUserVip(profile);
+  const remainingDays = getRemainingSubscriptionDays(profile);
 
   const tabs = [
     { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
@@ -113,6 +119,40 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-4 h-4 text-purple-500" />
               <span>سطح {profile.level}</span>
             </div>
+
+            {/* Golden Subscription Button */}
+            {isVip ? (
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('click', soundEnabled);
+                  onOpenSubscription();
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-full border-2 border-amber-400 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-xs font-black shadow-xs hover:scale-105 transition-all cursor-pointer"
+                title="اشتراک طلایی فعال است (مشاهده جزییات)"
+              >
+                <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white shrink-0 animate-bounce" />
+                <span className="hidden sm:inline">طلایی</span>
+                {remainingDays !== null && (
+                  <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full">
+                    {remainingDays} روز
+                  </span>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('click', soundEnabled);
+                  onOpenSubscription();
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-full border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-black shadow-xs hover:scale-105 transition-all cursor-pointer animate-pulse"
+                title="خرید اشتراک طلایی و بازگشایی تمامی فصل‌ها"
+              >
+                <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 fill-amber-400 shrink-0" />
+                <span className="text-[11px] sm:text-xs">اشتراک طلایی 👑</span>
+              </button>
+            )}
 
             {/* Phone Auth Login Button */}
             <button
