@@ -85,7 +85,7 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 dir-rtl print:p-0 print:m-0">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-5xl mx-auto space-y-6 dir-rtl box-border print:p-0 print:m-0">
       {/* Header Banner */}
       <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">

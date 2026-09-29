@@ -110,7 +110,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   const currentLesson: Lesson | undefined = activeLessons[selectedLessonIndex];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 dir-rtl">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border">
       {/* Title Header */}
       <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] p-6 shadow-sm space-y-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">

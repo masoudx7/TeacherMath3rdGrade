@@ -193,7 +193,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
   const resolvedCount = mistakes.filter(m => m.resolved).length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 dir-rtl">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-5xl mx-auto space-y-6 dir-rtl box-border">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-[#FF7675] to-[#D63031] text-white rounded-[2rem] p-6 sm:p-8 shadow-sm relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2 z-10">

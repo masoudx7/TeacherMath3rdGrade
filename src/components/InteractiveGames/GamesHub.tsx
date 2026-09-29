@@ -100,7 +100,7 @@ export const GamesHub: React.FC<GamesHubProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 dir-rtl">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-4 sm:space-y-6 dir-rtl box-border">
       {/* Game Selector Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2 sm:gap-2.5">
         {games.map((game) => {

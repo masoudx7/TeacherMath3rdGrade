@@ -1403,61 +1403,170 @@ export const AVATARS = [
 ];
 
 export const BADGES: Badge[] = [
+  // --- Daily / Starter Badges ---
   {
-    id: 'daily_first_step',
-    title: 'قدم اول امروز 🚀',
-    description: 'حل حداقل ۱ مسئله تمرینی در امروز',
-    icon: '🚀',
+    id: 'badge_first_step',
+    title: 'اولین قدم ریاضی',
+    description: 'حل کردن اولین مسئله در سامانه استاد دانا',
+    icon: '🌱',
     category: 'daily',
     requiredSolved: 1
   },
   {
-    id: 'daily_star_catcher',
-    title: 'ستاره‌چین روز 🌟',
-    description: 'کسب ۵ ستاره در تمرینات امروز',
-    icon: '🌟',
+    id: 'badge_star_collector_1',
+    title: 'ستاره‌چین کوچک',
+    description: 'جمع‌آوری ۵۰ ستاره در تمرینات',
+    icon: '⭐',
     category: 'daily',
-    requiredStars: 5
+    requiredStars: 50
   },
   {
-    id: 'daily_scanner',
-    title: 'اسکنر تیزبین 📸',
-    description: 'اسکن و حل حداقل ۱ مسئله با دوربین',
+    id: 'badge_streak_3',
+    title: 'عادت خوب مطالعه',
+    description: '۳ روز متوالی تمرین ریاضی بدون وقفه',
+    icon: '🔥',
+    category: 'daily',
+    requiredStreak: 3
+  },
+  {
+    id: 'badge_scanner_novice',
+    title: 'کارآگاه تکالیف',
+    description: 'اسکن و تحلیل ۵ عکس از تمرینات کتاب',
     icon: '📸',
     category: 'daily',
-    requiredScanned: 1
+    requiredScanned: 5
+  },
+
+  // --- Weekly / Intermediate Badges (Requires weeks of practice) ---
+  {
+    id: 'badge_solver_50',
+    title: 'مسئله‌جوی ساعی',
+    description: 'حل موفقیت‌آمیز ۵۰ مسئله ریاضی',
+    icon: '💡',
+    category: 'weekly',
+    requiredSolved: 50
   },
   {
-    id: 'weekly_streak_7',
-    title: 'مبارز ۷ روزه 🔥',
-    description: '۷ روز ورود و تمرین متوالی در هفته',
-    icon: '🔥',
+    id: 'badge_star_collector_200',
+    title: 'کهکشان ستاره‌ها',
+    description: 'جمع‌آوری ۲۰۰ ستاره طلایی در حل تمرینات',
+    icon: '🌟',
+    category: 'weekly',
+    requiredStars: 200
+  },
+  {
+    id: 'badge_streak_7',
+    title: 'قهرمان پیوستگی هفتگی',
+    description: '۷ روز متوالی (یک هفته کامل) تمرین روزانه',
+    icon: '🗓️',
     category: 'weekly',
     requiredStreak: 7
   },
   {
-    id: 'weekly_stars_25',
-    title: 'کهکشان ستاره‌ها ✨',
-    description: 'جمع‌آوری ۲۵ ستاره در طول هفته',
-    icon: '✨',
+    id: 'badge_scanner_20',
+    title: 'مهندس بینایی ماشین',
+    description: 'اسکن و رفع اشکال ۲۰ عکس از مسائل دست‌نویس',
+    icon: '🔬',
     category: 'weekly',
-    requiredStars: 25
+    requiredScanned: 20
   },
   {
-    id: 'monthly_stars_100',
-    title: 'استاد ستاره‌ها 🎖️',
-    description: 'کسب ۱۰۰ ستاره افتخار در ریاضی سوم',
-    icon: '🎖️',
+    id: 'badge_level_5',
+    title: 'ریاضی‌دان سطح ۵',
+    description: 'رسیدن به سطح ۵ در مهارت‌های ریاضی',
+    icon: '🏅',
+    category: 'weekly',
+    requiredLevel: 5
+  },
+
+  // --- Monthly / Advanced Badges (Takes months of dedicated practice) ---
+  {
+    id: 'badge_solver_200',
+    title: 'استاد حل مسئله',
+    description: 'حل ۲۰۰ مسئله ریاضی با دقت بالا',
+    icon: '🎯',
     category: 'monthly',
-    requiredStars: 100
+    requiredSolved: 200
   },
   {
-    id: 'monthly_solver_50',
-    title: 'نابغه ریاضی سوم 💎',
-    description: 'حل ۵۰ مسئله ریاضی پایه سوم ابتدایی',
-    icon: '💎',
+    id: 'badge_solver_500',
+    title: 'نابغه بی‌رقیب ریاضی',
+    description: 'حل ۵۰۰ مسئله مختلف در تمام فصل‌های کتاب',
+    icon: '🏆',
     category: 'monthly',
-    requiredSolved: 50
+    requiredSolved: 500
+  },
+  {
+    id: 'badge_solver_1000',
+    title: 'اسطوره ریاضیات سوم دبستان',
+    description: 'حل ۱۰۰۰ مسئله ریاضی! (نیازمند ماه‌ها تمرین مستمر)',
+    icon: '👑',
+    category: 'monthly',
+    requiredSolved: 1000
+  },
+  {
+    id: 'badge_star_1000',
+    title: 'کهکشانی از ستاره‌ها',
+    description: 'کسب ۱۰۰۰ ستاره طلایی در کل دوره تحصیلی',
+    icon: '🌌',
+    category: 'monthly',
+    requiredStars: 1000
+  },
+  {
+    id: 'badge_star_5000',
+    title: 'خالق سیاره ستارگان',
+    description: 'کسب ۵۰۰۰ ستاره طلایی! (نشان بالاترین پشتکار)',
+    icon: '🌠',
+    category: 'monthly',
+    requiredStars: 5000
+  },
+  {
+    id: 'badge_streak_30',
+    title: 'قهرمان ماهانه (۳۰ روز متوالی)',
+    description: '۳۰ روز متوالی بدون حتی یک روز غیبت در تمرین ریاضی',
+    icon: '🗓️🔥',
+    category: 'monthly',
+    requiredStreak: 30
+  },
+  {
+    id: 'badge_streak_90',
+    title: 'فصل‌شکن بی‌وقفه (۹۰ روز)',
+    description: '۹۰ روز متوالی (سه ماه کامل) تمرین روزانه ریاضی',
+    icon: '⚡🛡️',
+    category: 'monthly',
+    requiredStreak: 90
+  },
+  {
+    id: 'badge_scanner_50',
+    title: 'اسکنر ارشد تکالیف',
+    description: 'اسکن و تحلیل ۵۰ عکس از تکالیف سخت',
+    icon: '📡',
+    category: 'monthly',
+    requiredScanned: 50
+  },
+  {
+    id: 'badge_level_10',
+    title: 'دانشمند کوچک (سطح ۱۰)',
+    description: 'ارتقای سطح به رتبه ۱۰ ریاضی‌دانان برتر',
+    icon: '🎓',
+    category: 'monthly',
+    requiredLevel: 10
+  },
+  {
+    id: 'badge_level_25',
+    title: 'استاد اعظم ریاضی (سطح ۲۵)',
+    description: 'رسیدن به سطح فوق‌العاده ۲۵ در پلتفرم استاد دانا',
+    icon: '🔮',
+    category: 'monthly',
+    requiredLevel: 25
+  },
+  {
+    id: 'badge_level_50',
+    title: 'افسانه زنده ریاضی (سطح ۵۰)',
+    description: 'بالاترین افتخار علمی سامانه؛ رسیدن به سطح ۵۰!',
+    icon: '🌟💎👑',
+    category: 'monthly',
+    requiredLevel: 50
   }
 ];
 

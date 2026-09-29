@@ -100,7 +100,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12 dir-rtl">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-4xl mx-auto space-y-6 pb-12 dir-rtl box-border">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl border-4 border-amber-300/40">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />

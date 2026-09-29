@@ -104,7 +104,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
     : BADGES.filter(b => b.category === activeBadgeCategory);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 dir-rtl">
+    <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border">
       {/* Student Stats Summary Header */}
       <div className="bg-white border-4 border-[#FFEAA7] rounded-[2rem] p-6 shadow-[0_8px_0_0_#E0E0E0] text-[#2D3436] flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
