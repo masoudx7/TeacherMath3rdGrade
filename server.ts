@@ -424,7 +424,7 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
         temperature: 0.5,
       });
     } catch (err: any) {
-      console.warn('[Gemini Chat Error]:', err?.message || err);
+      console.warn('[Gemini Chat Error / Quota Exhausted]:', err?.message || err);
     }
 
     if (responseText && responseText.trim()) {
@@ -437,28 +437,7 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
       });
     }
 
-    // Fallback to DeepSeek if configured
-    if (process.env.DEEPSEEK_API_KEY) {
-      try {
-        const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
-        if (dsText && dsText.trim()) {
-          const validated = validateAndCorrectTutorResponse(dsText);
-          return res.json({ text: validated.cleanText, provider: 'deepseek' });
-        }
-      } catch (dsErr: any) {
-        console.warn('[DeepSeek Chat Error]:', dsErr?.message || dsErr);
-      }
-    }
-
-    // Ultimate Socratic Educational Fallback when API Quota / Rate limit is reached
-    const fallbackMessage = `سلام قهرمان! استاد دانا در این لحظه ترافیک سنگینی از سوالات بچه‌ها رو داره و تارهای صوتی‌اش کمی خسته شده! 🦉☕\n\nاما ریاضی سوم دبستان هیچ‌وقت متوقف نمیشه! برای سوال جالب تو: «${prompt}»، یادت باشه که توی حل مسئله‌های ریاضی همیشه اول باید داده‌ها رو جدا کنیم و قدم‌به‌قدم پیش بریم. دوست داری کدوم بخش از این مسئله رو با کمک جدول ارزش مکانی یا رسم شکل حل کنیم؟ ✨`;
-    const quotaValidated = validateAndCorrectTutorResponse(fallbackMessage);
-    return res.json({
-      text: quotaValidated.cleanText,
-      isQuotaFallback: true
-    });
-
-    // Fallback to Groq if configured (Tier 3 Emergency AI)
+    // Fallback to Groq if configured (Tier 2 AI fallback)
     if (process.env.GROQ_API_KEY) {
       try {
         const groqText = await generateGroqContent(contents, OSTAD_DANA_SYSTEM_INSTRUCTION);
@@ -471,10 +450,26 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
       }
     }
 
-    // ۳. فال‌بک امن و هوشمند کودکانه هنگام در دسترس نبودن یا خطای مدل
-    const fallbackText = generateFallbackTutorResponse(prompt);
-    const validatedFallback = validateAndCorrectTutorResponse(fallbackText);
-    return res.json({ text: validatedFallback.cleanText, isFallback: true });
+    // Fallback to DeepSeek if configured (Tier 3 AI fallback)
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
+        if (dsText && dsText.trim()) {
+          const validated = validateAndCorrectTutorResponse(dsText);
+          return res.json({ text: validated.cleanText, provider: 'deepseek' });
+        }
+      } catch (dsErr: any) {
+        console.warn('[DeepSeek Chat Error]:', dsErr?.message || dsErr);
+      }
+    }
+
+    // Ultimate Socratic Educational Fallback when all API Quotas / Rate limits are reached
+    const fallbackMessage = `سلام قهرمان! استاد دانا در این لحظه ترافیک سنگینی از سوالات بچه‌ها رو داره و تارهای صوتی‌اش کمی خسته شده! 🦉☕\n\nاما ریاضی سوم دبستان هیچ‌وقت متوقف نمیشه! برای سوال جالب تو: «${prompt}»، یادت باشه که توی حل مسئله‌های ریاضی همیشه اول باید داده‌ها رو جدا کنیم و قدم‌به‌قدم پیش بریم. دوست داری کدوم بخش از این مسئله رو با کمک جدول ارزش مکانی یا رسم شکل حل کنیم؟ ✨`;
+    const quotaValidated = validateAndCorrectTutorResponse(fallbackMessage);
+    return res.json({
+      text: quotaValidated.cleanText,
+      isQuotaFallback: true
+    });
   } catch (criticalErr: any) {
     console.error('[Critical Tutor Chat Exception]:', criticalErr);
     // در هر شرایط بحرانی، پاسخ مهربان و آموزنده کودکانه بازمی‌گردد، نه خطای انگلیسی
