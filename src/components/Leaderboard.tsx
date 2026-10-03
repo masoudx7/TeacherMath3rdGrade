@@ -135,20 +135,20 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
       </div>
 
       {/* Timeframe Selector Tabs */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl border-2 border-slate-200 shadow-inner">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl border-2 border-slate-200 shadow-inner gap-1">
         <button
           onClick={() => {
             playSound('click', soundEnabled);
             setTimeframe('weekly');
           }}
-          className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 px-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             timeframe === 'weekly'
-              ? 'bg-white text-purple-700 shadow-md border-2 border-purple-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-2 border-amber-300'
+              : 'text-slate-600 hover:text-slate-900 bg-white/50'
           }`}
         >
-          <Flame className="w-4 h-4 text-amber-500" />
-          <span>برترین‌های این هفته 🌟</span>
+          <Flame className="w-4 h-4 text-amber-200" />
+          <span>بهترین‌های هفته 🌟</span>
         </button>
 
         <button
@@ -156,14 +156,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
             playSound('click', soundEnabled);
             setTimeframe('monthly');
           }}
-          className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 px-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             timeframe === 'monthly'
-              ? 'bg-white text-purple-700 shadow-md border-2 border-purple-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md border-2 border-indigo-300'
+              : 'text-slate-600 hover:text-slate-900 bg-white/50'
           }`}
         >
-          <Calendar className="w-4 h-4 text-indigo-500" />
-          <span>برترین‌های این ماه 📅</span>
+          <Calendar className="w-4 h-4 text-indigo-200" />
+          <span>بهترین‌های ماه 📅</span>
         </button>
 
         <button
@@ -171,14 +171,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
             playSound('click', soundEnabled);
             setTimeframe('yearly');
           }}
-          className={`flex-1 py-3 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 px-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             timeframe === 'yearly'
-              ? 'bg-white text-purple-700 shadow-md border-2 border-purple-200'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md border-2 border-pink-300'
+              : 'text-slate-600 hover:text-slate-900 bg-white/50'
           }`}
         >
-          <Trophy className="w-4 h-4 text-amber-500" />
-          <span>قهرمانان سال 🏆</span>
+          <Trophy className="w-4 h-4 text-amber-300" />
+          <span>بهترین‌ها در همه زمان‌ها 🏆</span>
         </button>
       </div>
 

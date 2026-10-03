@@ -52,20 +52,12 @@ export const saveAccountToStore = (userProfile: StudentProfile) => {
   }
 };
 
-export const calculateUnlockedBadges = (prof: StudentProfile): string[] => {
-  const badgeSet = new Set(prof.unlockedBadges || []);
-  BADGES.forEach((b) => {
-    let qualifies = true;
-    if (b.requiredStars !== undefined && prof.stars < b.requiredStars) qualifies = false;
-    if (b.requiredSolved !== undefined && prof.solvedCount < b.requiredSolved) qualifies = false;
-    if (b.requiredScanned !== undefined && prof.scannedImagesCount < b.requiredScanned) qualifies = false;
-    if (b.requiredStreak !== undefined && prof.streakDays < b.requiredStreak) qualifies = false;
-    if (b.requiredLevel !== undefined && prof.level < b.requiredLevel) qualifies = false;
+import { evaluateTrophies } from '../utils/trophyEngine';
 
-    if (qualifies) {
-      badgeSet.add(b.id);
-    }
-  });
+export const calculateUnlockedBadges = (prof: StudentProfile): string[] => {
+  const existingUnlocked = prof.unlockedBadges || [];
+  const newlyUnlocked = evaluateTrophies(prof);
+  const badgeSet = new Set([...existingUnlocked, ...newlyUnlocked]);
   return Array.from(badgeSet);
 };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StudentProfile } from '../types';
-import { BADGES, CHAPTERS, AVATARS } from '../data/curriculum';
+import { BADGES } from '../data/playstationTrophies';
+import { CHAPTERS, AVATARS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
 import confetti from 'canvas-confetti';
 import { 
@@ -36,7 +37,7 @@ interface ProgressDashboardProps {
 }
 
 export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, soundEnabled }) => {
-  const [activeBadgeCategory, setActiveBadgeCategory] = React.useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
+  const [activeBadgeCategory, setActiveBadgeCategory] = React.useState<'all' | 'platinum' | 'gold' | 'silver' | 'bronze'>('all');
   const avatarObj = AVATARS.find(a => a.id === profile.avatar) || AVATARS[0];
 
   // Radar Data for chapter mastery
@@ -61,47 +62,55 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
 
   const handleBadgeClick = (badgeTitle: string, isUnlocked: boolean) => {
     if (isUnlocked) {
-      playSound('badge', soundEnabled);
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      playSound('victory', soundEnabled);
+      confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
     } else {
       playSound('wrong', soundEnabled);
     }
   };
 
-  const getBadgeProgress = (badge: (typeof BADGES)[0]) => {
+  const getBadgeProgress = (badge: any) => {
     let current = 0;
     let target = 1;
     let unit = '';
 
-    if (badge.requiredStars !== undefined) {
-      current = profile.stars;
-      target = badge.requiredStars;
-      unit = 'ستاره';
-    } else if (badge.requiredSolved !== undefined) {
+    const { type, threshold } = badge.condition || { type: 'solved', threshold: 10 };
+
+    if (type === 'solved') {
       current = profile.solvedCount;
-      target = badge.requiredSolved;
+      target = threshold as number;
       unit = 'مسئله';
-    } else if (badge.requiredScanned !== undefined) {
-      current = profile.scannedImagesCount;
-      target = badge.requiredScanned;
-      unit = 'عکس';
-    } else if (badge.requiredStreak !== undefined) {
+    } else if (type === 'streak') {
       current = profile.streakDays;
-      target = badge.requiredStreak;
-      unit = 'روز';
-    } else if (badge.requiredLevel !== undefined) {
-      current = profile.level;
-      target = badge.requiredLevel;
-      unit = 'سطح';
+      target = threshold as number;
+      unit = 'روز پیاپی';
+    } else if (type === 'mastery') {
+      const numThreshold = threshold as number;
+      const masteryVals = Object.values(profile.chapterMastery || {}) as number[];
+      if (numThreshold <= 1) {
+        const maxMastery = Math.max(0, ...masteryVals) * 100;
+        current = Math.round(maxMastery);
+        target = Math.round(numThreshold * 100);
+        unit = '٪ تسلط';
+      } else {
+        const achievedCount = masteryVals.filter(m => m >= 0.8).length;
+        current = achievedCount;
+        target = numThreshold;
+        unit = 'فصل مسلط';
+      }
+    } else {
+      current = profile.solvedCount;
+      target = 10;
+      unit = 'مسئله';
     }
 
-    const percent = Math.min(100, Math.round((current / target) * 100));
+    const percent = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
     return { current, target, unit, percent };
   };
 
   const filteredBadges = activeBadgeCategory === 'all' 
     ? BADGES 
-    : BADGES.filter(b => b.category === activeBadgeCategory);
+    : BADGES.filter((b: any) => b.tier === activeBadgeCategory);
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border">
@@ -200,22 +209,23 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
           <div>
             <h3 className="font-bold text-[#2D3436] text-xl flex items-center gap-2">
               <Trophy className="w-6 h-6 text-amber-500" />
-              <span>مدال‌های افتخار و چالش‌های انگیزشی</span>
+              <span>کاپ‌ها و مدال‌های افتخار ریاضی</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">مدال‌های روزانه، هفتگی و ماهانه را با تمرین مداوم فتح کن!</p>
+            <p className="text-xs text-slate-500 mt-0.5">مجموعه کاپ‌ها و دستاوردهای ارزشمند ریاضی پایه سوم دبستان</p>
           </div>
           <span className="text-xs font-bold text-[#D35400] bg-[#FFEAA7] border border-[#FDCB6E] px-4 py-1.5 rounded-full shadow-xs shrink-0">
-            {profile.unlockedBadges.length} از {BADGES.length} مدال به دست آمده
+            {profile.unlockedBadges.length} از {BADGES.length} کاپ فتح شده
           </span>
         </div>
 
         {/* Category Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           {[
-            { id: 'all', label: 'همه مدال‌ها 🎖️' },
-            { id: 'daily', label: '☀️ چالش‌های روزانه' },
-            { id: 'weekly', label: '📅 چالش‌های هفتگی' },
-            { id: 'monthly', label: '👑 چالش‌های ماهانه' },
+            { id: 'all', label: `همه کاپ‌ها (${BADGES.length} عدد) 🏆` },
+            { id: 'platinum', label: '🏆 پلاتینیوم (اسطوره‌ای)' },
+            { id: 'gold', label: '🥇 طلا (بسیار سخت)' },
+            { id: 'silver', label: '🥈 نقره (پیشرفته)' },
+            { id: 'bronze', label: '🥉 برنز (مبتدی)' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -233,17 +243,19 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
 
         {/* Badges Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredBadges.map((badge) => {
+          {filteredBadges.map((badge: any) => {
             const isUnlocked = profile.unlockedBadges.includes(badge.id);
             const { current, target, unit, percent } = getBadgeProgress(badge);
 
-            const categoryBadgeText = 
-              badge.category === 'daily' ? '☀️ روزانه' :
-              badge.category === 'weekly' ? '📅 هفتگی' : '👑 ماهانه';
+            const tierText = 
+              badge.tier === 'platinum' ? '🏆 پلاتینیوم (۳۰۰ امتیاز)' :
+              badge.tier === 'gold' ? '🥇 طلا (۹۰ امتیاز)' :
+              badge.tier === 'silver' ? '🥈 نقره (۴۵ امتیاز)' : '🥉 برنز (۱۵ امتیاز)';
 
-            const categoryBadgeBg = 
-              badge.category === 'daily' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-              badge.category === 'weekly' ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-purple-100 text-purple-800 border-purple-300';
+            const tierBg = 
+              badge.tier === 'platinum' ? 'bg-indigo-100 text-indigo-900 border-indigo-300' :
+              badge.tier === 'gold' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+              badge.tier === 'silver' ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-orange-100 text-orange-900 border-orange-300';
 
             return (
               <div
@@ -265,8 +277,8 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
                       <p className="text-xs text-slate-500 leading-tight mt-1">{badge.description}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${categoryBadgeBg}`}>
-                    {categoryBadgeText}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${tierBg}`}>
+                    {tierText}
                   </span>
                 </div>
 

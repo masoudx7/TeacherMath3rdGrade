@@ -48,17 +48,17 @@ export class KavenegarSmsService implements ISmsService {
       const data = await response.json();
       if (response.ok && data.return?.status === 200) {
         const msgId = data.entries?.[0]?.messageid?.toString();
-        console.log(`[Kavenegar OTP] پیامک تایید با موفقیت ارسال شد (شناسه پیام: ${msgId})`);
+        console.log(`[SMS] OTP Sent: success, Kavenegar Status: 200, MessageId: ${msgId}`);
         return { success: true, messageId: msgId };
       }
 
       const status = data.return?.status;
       const errorMsg = data.return?.message || 'خطا در وب‌سرویس کاوه‌نگار';
-      console.warn(`[Kavenegar Lookup Warning] کد وضعیت ${status}: ${errorMsg}`);
+      console.error(`[SMS] OTP Sent: fail, Kavenegar Status: ${status}, Error: ${errorMsg}`);
 
       // اگر قالب تعریف نشده بود (خطای ۴۲۰ در کاوه‌نگار) و خط فرستنده موجود بود، فال‌بک به پیامک ساده
       if (this.senderNumber) {
-        console.log('[Kavenegar] تلاش برای ارسال پیامک از طریق خط فرستنده اختصاصی...');
+        console.log('[SMS] Fallback to direct send...');
         return await this.sendSimpleSms(cleanPhone, code);
       }
 

@@ -209,8 +209,8 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
   // If already logged in, show User Info & Logout View
   if (isLoggedIn && currentPhoneNumber) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl">
-        <div className="bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-amber-200 relative text-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl box-border">
+        <div className="bg-white w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-8 shadow-2xl border-4 border-amber-200 relative text-center box-border">
           <button
             onClick={() => {
               playSound('click', soundEnabled);
@@ -257,8 +257,8 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl">
-      <div className="bg-white w-full max-w-md rounded-3xl p-5 sm:p-7 shadow-2xl border-4 border-[#FFEAA7] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl box-border">
+      <div className="bg-white w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-3xl p-4 sm:p-7 shadow-2xl border-4 border-[#FFEAA7] relative box-border">
         {/* Close button */}
         <button
           onClick={() => {

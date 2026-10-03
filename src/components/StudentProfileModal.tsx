@@ -27,8 +27,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#2D3436]/60 backdrop-blur-sm flex items-center justify-center p-4 dir-rtl animate-fadeIn">
-      <div className="bg-white border-4 border-[#A29BFE] rounded-[2rem] p-6 shadow-2xl max-w-md w-full space-y-6 relative">
+    <div className="fixed inset-0 z-50 bg-[#2D3436]/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 dir-rtl animate-fadeIn box-border">
+      <div className="bg-white border-4 border-[#A29BFE] rounded-[2rem] p-4 sm:p-6 shadow-2xl w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto space-y-4 sm:space-y-6 relative box-border">
         {/* Close Button */}
         <button
           onClick={onClose}

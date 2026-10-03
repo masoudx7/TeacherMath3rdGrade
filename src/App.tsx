@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { AITutorChat } from './components/AITutorChat';
-import { ImageSolver } from './components/ImageSolver';
 import { GamesHub } from './components/InteractiveGames/GamesHub';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { CurriculumGuide } from './components/CurriculumGuide';
@@ -13,13 +12,14 @@ import { SuccessCelebrationModal, CelebrationData } from './components/SuccessCe
 import { AIDailyTip } from './components/AIDailyTip';
 import { MistakeNotebook } from './components/MistakeNotebook';
 import { ParentReport } from './components/ParentReport';
-import { MyQuestionsView } from './components/MyQuestionsView';
 import { ParentalConsentModal } from './components/ParentalConsentModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { StudentProfile, ChapterId } from './types';
-import { BADGES } from './data/curriculum';
+import { BADGES } from './data/playstationTrophies';
+import { evaluateTrophies } from './utils/trophyEngine';
 import { fetchServerProfile, syncProgressToServer } from './utils/syncManager';
 
-const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
+const STORAGE_KEY = 'math_tutor_3rd_profile_v4';
 const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
 const PARENTAL_CONSENT_KEY = 'math_tutor_parental_consent_v1';
 
@@ -73,19 +73,9 @@ const saveAccountToStore = (userProfile: StudentProfile) => {
 
 // Helper to check badge unlocks based on current stats
 const getUnlockedBadges = (prof: StudentProfile): string[] => {
-  const badgeSet = new Set(prof.unlockedBadges || []);
-  BADGES.forEach(b => {
-    let qualifies = true;
-    if (b.requiredStars !== undefined && prof.stars < b.requiredStars) qualifies = false;
-    if (b.requiredSolved !== undefined && prof.solvedCount < b.requiredSolved) qualifies = false;
-    if (b.requiredScanned !== undefined && prof.scannedImagesCount < b.requiredScanned) qualifies = false;
-    if (b.requiredStreak !== undefined && prof.streakDays < b.requiredStreak) qualifies = false;
-    if (b.requiredLevel !== undefined && prof.level < b.requiredLevel) qualifies = false;
-
-    if (qualifies) {
-      badgeSet.add(b.id);
-    }
-  });
+  const existingUnlocked = prof.unlockedBadges || [];
+  const newlyUnlocked = evaluateTrophies(prof);
+  const badgeSet = new Set([...existingUnlocked, ...newlyUnlocked]);
   return Array.from(badgeSet);
 };
 
@@ -94,6 +84,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const [isPhoneAuthOpen, setIsPhoneAuthOpen] = useState<boolean>(false);
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
   const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
   const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
 
@@ -385,12 +376,13 @@ export default function App() {
         profile={profile}
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenPhoneAuth={() => setIsPhoneAuthOpen(true)}
+        onOpenSubscription={() => setIsSubscriptionOpen(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
       />
 
       {/* Main Content Area */}
-      <main className={`flex-1 ${activeTab === 'tutor' ? 'py-1 sm:py-3 px-1 sm:px-4 pb-18 sm:pb-4' : 'py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8'} max-w-7xl mx-auto w-full overflow-x-hidden box-border`}>
+      <main className={`flex-1 ${activeTab === 'tutor' ? 'py-1 sm:py-3 px-1 sm:px-4 pb-18 sm:pb-4' : 'py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8'} max-w-7xl mx-auto w-full overflow-x-hidden box-border space-y-4`}>
         {/* Dynamic AI Math Tip of the Day - Only show on other tabs so chat has maximum vertical space */}
         {activeTab !== 'tutor' && <AIDailyTip soundEnabled={soundEnabled} />}
 
@@ -399,14 +391,9 @@ export default function App() {
             soundEnabled={soundEnabled}
             onAddStars={handleAddStars}
             onIncrementSolved={handleIncrementSolved}
-          />
-        )}
-
-        {activeTab === 'scan' && (
-          <ImageSolver
-            soundEnabled={soundEnabled}
-            onAddStars={handleAddStars}
-            onIncrementScanned={handleIncrementScanned}
+            profile={profile}
+            onUpdateProfile={(updated) => setProfile(updated)}
+            onOpenSubscription={() => setIsSubscriptionOpen(true)}
           />
         )}
 
@@ -462,13 +449,6 @@ export default function App() {
             profile={profile}
             soundEnabled={soundEnabled}
             onDataWiped={handleLogout}
-          />
-        )}
-
-        {activeTab === 'my_questions' && (
-          <MyQuestionsView
-            profile={profile}
-            soundEnabled={soundEnabled}
           />
         )}
       </main>
@@ -527,6 +507,19 @@ export default function App() {
         isLoggedIn={profile.isLoggedIn}
         onLogout={handleLogout}
       />
+
+      {/* Subscription Modal */}
+      {isSubscriptionOpen && (
+        <SubscriptionModal
+          isOpen={isSubscriptionOpen}
+          onClose={() => setIsSubscriptionOpen(false)}
+          profile={profile}
+          soundEnabled={soundEnabled}
+          onPurchaseSuccess={(updatedProfile) => {
+            setProfile(updatedProfile);
+          }}
+        />
+      )}
 
       {/* Friendly In-App Reminder Toast & Time Settings */}
       <InAppReminderBanner

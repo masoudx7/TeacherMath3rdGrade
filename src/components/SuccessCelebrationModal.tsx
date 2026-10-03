@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Sparkles, Trophy, Star, Award, CheckCircle2, Heart, ArrowLeft, Volume2 } from 'lucide-react';
+import { Sparkles, Trophy, Star, Award, CheckCircle2, Heart, ArrowLeft } from 'lucide-react';
 import { playSound } from '../utils/sound';
 
 export interface CelebrationData {
@@ -85,11 +85,6 @@ export const SuccessCelebrationModal: React.FC<SuccessCelebrationModalProps> = (
         >
           <span>عالی بود، ادامه بده! 🚀</span>
         </button>
-
-        <div className="mt-4 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-400">
-          <Volume2 className="w-3.5 h-3.5 text-amber-500" />
-          <span>صدای تشویق پیروزی پخش شد</span>
-        </div>
       </div>
     </div>
   );

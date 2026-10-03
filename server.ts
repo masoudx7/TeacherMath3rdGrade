@@ -183,6 +183,8 @@ const TUTOR_SYSTEM_INSTRUCTION = `
    - لحن: دوستانه، با ایموجی‌های مناسب (🌟🎯🎈✨)، جملات کوتاه و قابل فهم برای کودک ۹ ساله (۱ تا ۲ جمله در هر پیام و سپس منتظر تایید کودک).
    - زبان: فارسی ساده و روان.
    - تولید شکلهای آموزشی (SVG): برای مفاهیم بصری مثل کسر، هندسه (محیط و مساحت)، الگوها و ساعت، حتماً کد SVG معتبر در بلوک خروجی قرار بده تا شکل روی صفحه نمایش داده شود.
+۷. تحلیل دقیق اشکال کسرها و پیتزاها:
+   - در تحلیل تصاویر پیتزا، شکل‌های هندسی یا نمودارهای کسر، دقت کن که کل قسمت‌های مساوی (مخرج کسر) و قسمت‌های رنگی‌شده یا طلایی (صورت کسر) را دقیق بشماری (مثلاً اگر پیتزا به ۴ تکه مساوی تقسیم شده و ۳ تکه آن رنگی است، کسر دقیقاً ۳/۴ یا سه چهارم است).
 `;
 
 // Helper function for optional DeepSeek API fallback
@@ -490,9 +492,9 @@ app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async
     const { cleanBase64, mimeType: extractedMime } = parseBase64Image(imageBase64, mimeType);
 
     const promptText = `
-این عکس حاوی صفحه کتاب، دفتر یا دست‌نویس تمرین ریاضی پایه سوم ابتدایی است.
+این عکس حاوی صفحه کتاب، دفتر، شکل هندسی یا تصویر کسر ریاضی پایه سوم ابتدایی است.
 وظایف تو:
-۱. متن، اعداد، کسرها یا شکل‌های داخل تصویر را با دقت بخوان و صورت سوال را به زبان فارسی شفاف بازنویسی کن.
+۱. متن، اعداد، کسرها، پیتزاها یا شکل‌های داخل تصویر را با دقت بسیار بالا بخوان و بشمار. (به‌ویژه در شکل‌های کسر پیتزا: کل تکه‌های مساوی = مخرج، تکه‌های رنگی یا طلایی = صورت).
 ۲. مسئله را به روش گام‌به‌گام کتاب ریاضی سوم دبستان با لحن شاد، کودکانه و مثال ملموس توضیح بده.
 ۳. جواب آخر را با کادر یا شکل واضح مشخص کن.
 ۴. در پایان، یک سوال خیلی شبیه به همین سوال برای تمرین اختصاصی کودک طرح کن.
@@ -815,6 +817,34 @@ const leaderboardStore = new Map<string, LeaderboardEntry>([
     chapterMastery: { patterns: 78, place_value: 70 },
     lastActive: new Date().toISOString(),
   }],
+  ['soheil_z', {
+    id: 'soheil_z',
+    name: 'سهیل زارعی',
+    avatar: 'fox',
+    stars: 88,
+    level: 3,
+    solvedCount: 45,
+    weeklyStars: 15,
+    monthlyStars: 45,
+    yearlyStars: 88,
+    unlockedBadges: ['b1'],
+    chapterMastery: { patterns: 75, place_value: 65 },
+    lastActive: new Date().toISOString(),
+  }],
+  ['fateme_s', {
+    id: 'fateme_s',
+    name: 'فاطمه سادات موسوی',
+    avatar: 'owl',
+    stars: 76,
+    level: 3,
+    solvedCount: 38,
+    weeklyStars: 12,
+    monthlyStars: 40,
+    yearlyStars: 76,
+    unlockedBadges: ['b1'],
+    chapterMastery: { patterns: 70, place_value: 60 },
+    lastActive: new Date().toISOString(),
+  }],
 ]);
 
 // Get Leaderboard list sorted by timeframe
@@ -941,14 +971,16 @@ app.post('/api/auth/send-otp', async (req, res) => {
     // ارسال از طریق درگاه پیامک (کاوه‌نگار یا فال‌بک توسعه)
     const activeSmsService = getSmsService();
     const smsResult = await activeSmsService.sendOtp(cleanPhone, code);
+    
     if (!smsResult.success) {
-      console.warn('[AUTH OTP] SMS gateway returned issue:', smsResult.error);
+      console.error(`[AUTH OTP] SMS Send Fail: ${smsResult.error}`);
+      return res.status(500).json({ error: 'خطا در ارسال پیامک. لطفاً بعداً تلاش کنید.' });
     }
 
     res.json({
       success: true,
       message: 'کد تایید ۴ رقمی پیامک شد.',
-      demoCode: process.env.NODE_ENV !== 'production' ? code : undefined, // در حالت دمو برای راحتی تست
+      demoCode: process.env.NODE_ENV !== 'production' ? code : undefined,
       expiresInSeconds: 180,
     });
   } catch (err: any) {

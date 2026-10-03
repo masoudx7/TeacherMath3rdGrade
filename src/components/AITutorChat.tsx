@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
-import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { generateFallbackTutorResponse } from '../utils/tutorFallback';
 import { getAllQuestions, saveQuestionLocally, syncQuestionsToCloud } from '../utils/questionManager';
 import { 
@@ -11,12 +10,8 @@ import {
   RefreshCw, 
   Lightbulb, 
   Star, 
-  Mic, 
-  MicOff,
   Copy,
   Check,
-  Volume2,
-  VolumeX,
   Trash2,
   ChevronDown,
   ChevronUp,
@@ -98,10 +93,8 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [suggestionOffset, setSuggestionOffset] = useState<number>(0);
 
@@ -170,88 +163,13 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
     }
   }, [messages]);
 
-  // Voice recognition (Web Speech API)
-  const handleVoiceInput = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
-      if (isFirefox) {
-        alert('🎤 ورودی صوتی در Firefox پشتیبانی نمی‌شود.\n\nلطفاً از Chrome یا Safari استفاده کنید.');
-      } else {
-        alert('🎤 مرورگر شما از ورودی صوتی پشتیبانی نمی‌کند.\n\nلطفاً از Chrome یا Safari استفاده کنید.');
-      }
-      return;
-    }
-
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'fa-IR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = (event: any) => {
-        setIsListening(false);
-        if (event.error === 'no-speech') {
-          alert('صدایی شنیده نشد. لطفاً دوباره تلاش کنید.');
-        } else if (event.error === 'audio-capture') {
-          alert('میکروفون یافت نشد. لطفاً میکروفون را بررسی کنید.');
-        } else if (event.error === 'not-allowed') {
-          alert('دسترسی به میکروفون رد شد. لطفاً در تنظیمات مرورگر اجازه دهید.');
-        }
-      };
-      
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) {
-          setInput(transcript);
-        }
-      };
-      
-      recognition.start();
-    } catch (e) {
-      setIsListening(false);
-      alert('خطا در راه‌اندازی ورودی صوتی. لطفاً دوباره تلاش کنید.');
-    }
-  };
-
-
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    playSound('pop', soundEnabled);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSpeakText = (id: string, text: string) => {
-    if (speakingId === id) {
-      stopPersianSpeech();
-      setSpeakingId(null);
-      return;
-    }
-
-    setSpeakingId(id);
-    // Strip out SVG code for text-to-speech
-    const cleanText = text.replace(/<svg[\s\S]*?<\/svg>/g, ' [شکل هندسی یا آموزشی] ');
-    speakPersianText(
-      cleanText,
-      undefined,
-      () => setSpeakingId(null),
-      () => setSpeakingId(null)
-    );
-  };
-
   const handleClearChat = () => {
-    playSound('pop', soundEnabled);
-    stopPersianSpeech();
-    setSpeakingId(null);
     const initialMsgs: ChatMessage[] = [
       {
         id: Date.now().toString(),
@@ -306,8 +224,6 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
     playSound('click', soundEnabled);
     setInput('');
-    stopPersianSpeech();
-    setSpeakingId(null);
 
     // ثبت کسر سهمیه
     const updatedProf = consumeAiQuota(profile);
@@ -452,38 +368,30 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-130px)] sm:h-[calc(100dvh-140px)] min-h-[480px] max-w-5xl mx-auto space-y-2 dir-rtl">
-      {/* Sleek Compact Header Bar */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#A29BFE] p-2.5 sm:p-3.5 shadow-xs flex items-center justify-between gap-2 shrink-0">
+    <div className="flex flex-col h-[calc(100dvh-100px)] sm:h-[calc(100dvh-110px)] max-w-5xl mx-auto space-y-2 dir-rtl">
+      {/* Sleek Thin Header Bar */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#A29BFE] p-2 sm:p-3 shadow-xs flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl sm:text-2xl shadow-xs shrink-0 animate-bounce">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl shadow-xs shrink-0 animate-bounce">
             🦉
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h2 className="font-black text-[#2D3436] text-xs sm:text-base truncate">
-                استاد دانا (معلم هوشمند ریاضی)
-              </h2>
-              <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-full font-bold">
-                {totalQ} سوال 📚
-              </span>
-              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                آنلاین
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
-              تدریس مفهومی با شکل SVG، مثال‌های ملموس و جدول
-            </p>
+          <div className="min-w-0 flex items-center gap-2">
+            <h2 className="font-black text-[#2D3436] text-sm sm:text-base truncate">
+              استاد دانا
+            </h2>
+            <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              آنلاین
+            </span>
           </div>
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* AI Quota Indicator */}
           {aiQuota.isVip ? (
-            <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-[10px] sm:text-xs font-black shadow-xs">
-              <Crown className="w-3 h-3 text-amber-600 fill-amber-400 animate-bounce" />
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black shadow-xs">
+              <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
               <span className="hidden sm:inline">طلایی (نامحدود)</span>
             </div>
           ) : (
@@ -493,71 +401,35 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                 playSound('pop', soundEnabled);
                 onOpenSubscription();
               }}
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-[10px] sm:text-xs font-black transition-all cursor-pointer shadow-xs"
-              title="مشاهده اشتراک طلایی و بازگشایی تمامی فصل‌ها"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black transition-all cursor-pointer shadow-xs"
             >
-              <Zap className="w-3 h-3 text-amber-600" />
+              <Zap className="w-3.5 h-3.5 text-amber-600" />
               <span>{aiQuota.remainingDaily} از ۳ رایگان</span>
-              {aiQuota.extraQuestions > 0 && (
-                <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1 rounded-xs">
-                  +{aiQuota.extraQuestions}
-                </span>
-              )}
             </button>
           )}
 
-          {/* Daily Practice Button */}
+          {/* Toggle Suggested Questions Panel */}
           <button
-            onClick={() => {
-              playSound('pop', soundEnabled);
-              const allQs = dynamicCategories[0]?.questions || ['جدول ضرب ۶ را با مثال یاد بده ✖️'];
-              const randomQ = allQs[Math.floor(Math.random() * allQs.length)];
-              handleSendMessage(randomQ);
-            }}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-            title="پیشنهاد سوال تصادفی برای تمرین امروز"
-          >
-            <span>🎯</span>
-            <span className="hidden sm:inline">تمرین روزانه</span>
-          </button>
-
-          {/* Quick Quiz Button */}
-          <button
-            onClick={() => {
-              playSound('pop', soundEnabled);
-              setQuizStep('selecting');
-              setShowQuizModal(true);
-            }}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-            title="آزمون سریع ۵ سوالی"
-          >
-            <span>⚡</span>
-            <span className="hidden sm:inline">آزمون سریع</span>
-          </button>
-
-          {/* Toggle Suggested Questions */}
-          <button
-            onClick={() => setShowSuggestions(!showSuggestions)}
-            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black border transition-all cursor-pointer flex items-center gap-1 ${
-              showSuggestions 
+            onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 ${
+              isSuggestionsOpen 
                 ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs' 
                 : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
             }`}
-            title="نمایش یا بستن سوالات آماده برای فضای بیشتر"
           >
-            <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-            <span className="hidden sm:inline">سوالات آماده</span>
-            {showSuggestions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <Lightbulb className="w-4 h-4 text-amber-600" />
+            <span>پیشنهاد سوال</span>
+            {isSuggestionsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
-          {/* New Chat / Clear History Button */}
+          {/* New Chat Button */}
           <button
             onClick={handleClearChat}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1"
-            title="پاک کردن تاریخچه و شروع گفتگوی جدید"
+            className="p-2 rounded-xl text-xs font-black bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1"
+            title="گفتگوی جدید"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">گفتگوی جدید</span>
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden md:inline">جدید</span>
           </button>
         </div>
       </div>
@@ -568,12 +440,11 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
         </div>
       )}
 
-      {/* Collapsible Slim Suggestions Bar */}
-      {showSuggestions && (
-        <div className="bg-white/95 border-2 border-amber-200/80 rounded-2xl p-2 shadow-2xs space-y-1.5 shrink-0 transition-all animate-in fade-in duration-150">
-          {/* Categories Horizontal Scroll */}
-          <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      {/* Collapsible Suggestion Panel */}
+      {isSuggestionsOpen && (
+        <div className="bg-white/95 border-2 border-amber-200 rounded-2xl p-3 shadow-md space-y-3 shrink-0 transition-all animate-in fade-in duration-150">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {dynamicCategories.map((cat) => (
                 <button
                   key={cat.id}
@@ -582,10 +453,10 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                     setSelectedCatId(cat.id);
                     setSuggestionOffset(0);
                   }}
-                  className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 border ${
+                  className={`text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border ${
                     selectedCatId === cat.id
-                      ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-2xs'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -596,22 +467,24 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
             <button
               onClick={handleShuffleSuggestions}
-              className="text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-lg border border-indigo-200 transition-all cursor-pointer flex items-center gap-1 shrink-0"
-              title="تغییر نمونه سوالات"
+              className="text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-xl border border-indigo-200 transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
             >
-              <RefreshCw className="w-3 h-3" />
-              <span className="hidden sm:inline">تازه کردن 🎲</span>
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>تازه کردن 🎲</span>
             </button>
           </div>
 
-          {/* Quick Question Chips Carousel (Single Compact Row) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          {/* Touchable Large Chips */}
+          <div className="flex flex-wrap gap-2 pt-1">
             {getDisplayedQuestions().map((q, idx) => (
               <button
                 key={`${selectedCatId}-${suggestionOffset}-${idx}`}
-                onClick={() => handleSendMessage(q)}
+                onClick={() => {
+                  handleSendMessage(q);
+                  setIsSuggestionsOpen(false);
+                }}
                 disabled={loading}
-                className="text-[10px] sm:text-xs bg-amber-50/80 hover:bg-amber-400 text-amber-900 font-bold px-2.5 py-1 rounded-xl border border-amber-200 hover:border-amber-400 whitespace-nowrap transition-all shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
+                className="text-xs sm:text-sm bg-amber-50 hover:bg-amber-400 text-amber-950 font-bold px-3.5 py-2 rounded-xl border border-amber-300 transition-all shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {q}
               </button>
@@ -671,20 +544,6 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                         <span>ذخیره سوال</span>
                       </button>
 
-                      {/* Audio Read-aloud button */}
-                      <button
-                        onClick={() => handleSpeakText(msg.id, msg.text)}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                          speakingId === msg.id
-                            ? 'bg-[#6C5CE7] text-white animate-pulse'
-                            : 'hover:bg-purple-50 text-[#6C5CE7] border border-purple-200'
-                        }`}
-                        title="خواندن صوتی متن"
-                      >
-                        {speakingId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                        <span className="text-[10px]">{speakingId === msg.id ? 'توقف صوت' : 'پخش صوتی'}</span>
-                      </button>
-
                       {/* Copy */}
                       <button
                         onClick={() => handleCopy(msg.id, msg.text)}
@@ -730,26 +589,12 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
           }}
           className="flex items-center gap-1.5 sm:gap-2"
         >
-          {/* Voice Input Button */}
-          <button
-            type="button"
-            onClick={handleVoiceInput}
-            className={`p-2.5 sm:p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 cursor-pointer min-w-[40px] sm:min-w-[44px] min-h-[40px] sm:min-h-[44px] ${
-              isListening 
-                ? 'bg-rose-500 border-rose-600 text-white animate-pulse' 
-                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-            title={isListening ? 'در حال شنیدن صدای شما (فارسی)...' : 'پرسیدن با صدا (میکروفون)'}
-          >
-            {isListening ? <MicOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5 text-[#6C5CE7]" />}
-          </button>
-
           {/* Text Input */}
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? 'در حال شنیدن صدای شما... صحبت کنید 🎤' : 'سؤال، تمرین یا هر مبحث ریاضی که می‌خواهی بپرس...'}
+            placeholder="سؤال، تمرین یا هر مبحث ریاضی که می‌خواهی بپرس..."
             className="flex-1 min-w-0 bg-[#F4F5FA] border border-slate-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#2D3436] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] transition-all dir-rtl min-h-[40px] sm:min-h-[44px]"
             disabled={loading}
           />

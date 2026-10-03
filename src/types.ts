@@ -139,6 +139,7 @@ export interface StudentProfile {
   level: number;
   streakDays: number;
   lastActiveDate?: string;
+  lastDailyRewardDate?: string;
   solvedCount: number;
   scannedImagesCount: number;
   unlockedBadges: string[];

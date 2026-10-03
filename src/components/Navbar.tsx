@@ -4,13 +4,10 @@ import { AVATARS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
 import { 
   Bot, 
-  Camera, 
   Gamepad2, 
   BarChart2, 
   BookOpen, 
   Star, 
-  Volume2, 
-  VolumeX, 
   Flame, 
   Award,
   Sparkles,
@@ -50,12 +47,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const tabs = [
     { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
-    { id: 'my_questions', label: 'سوالات من', shortLabel: 'سوالات', icon: BookMarked, badge: 'آفلاین/آنلاین' },
-    { id: 'scan', label: 'اسکن مسئله', shortLabel: 'اسکن', icon: Camera, badge: 'عکس' },
+    { id: 'progress', label: 'کارنامه و تروفی‌ها', shortLabel: 'کارنامه', icon: BarChart2 },
     { id: 'games', label: 'تمرین و آزمون', shortLabel: 'تمرین', icon: Gamepad2 },
     { id: 'mistakes', label: 'دفترچه اشتباهات', shortLabel: 'اشتباهات', icon: BookMarked, badge: 'رفع اشکال' },
     { id: 'curriculum', label: 'فصل‌های کتاب', shortLabel: 'فصل‌ها', icon: BookOpen },
-    { id: 'progress', label: 'کارنامه من', shortLabel: 'کارنامه', icon: BarChart2 },
     { id: 'parent_report', label: 'گزارش اولیا', shortLabel: 'اولیا', icon: Users },
     { id: 'leaderboard', label: 'برترین‌ها', shortLabel: 'برترین‌ها', icon: Trophy, badge: '🏆' },
   ];
@@ -68,135 +63,115 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#FFF9E5]/95 backdrop-blur-md pb-2 pt-2 sm:pt-3 px-2 sm:px-6">
-        <div className="max-w-7xl mx-auto bg-white p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-[0_4px_0_0_#E0E0E0] sm:shadow-[0_8px_0_0_#E0E0E0] border-2 border-slate-100 flex items-center justify-between gap-2">
-          {/* App Title & Mascot */}
-          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
-            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#FF6B6B] rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-xs border-2 border-white shrink-0 transform hover:rotate-6 transition-transform">
-              🦉
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-2xl font-bold text-[#2D3436] tracking-tight flex items-center gap-1.5 truncate">
-                <span className="truncate">آموزگار هوشمند</span>
-                <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E] shrink-0">
-                  سوم
-                </span>
-              </h1>
-              <p className="text-xs text-slate-500 hidden sm:block font-medium">ریاضی سوم ابتدایی - دستیار یادگیری گام به گام</p>
-            </div>
-          </div>
-
-          {/* Profile & Rewards Stats */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Sound Toggle */}
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border-2 text-xs sm:text-sm font-bold flex items-center justify-center transition-all cursor-pointer min-w-[38px] min-h-[38px] ${
-                soundEnabled 
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' 
-                  : 'bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200'
-              }`}
-              title={soundEnabled ? 'صدا فعال است' : 'صدا غیرفعال است'}
-              aria-label="تنظیم صدا"
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
-            </button>
-
-            {/* Streak */}
-            <div className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-[#FFF3F0] border-2 border-[#FAB1A0] rounded-full text-[#D35400] text-xs sm:text-sm font-bold">
-              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 fill-orange-400 animate-bounce" />
-              <span>{profile.streakDays} روز</span>
+      <header className="sticky top-0 z-40 bg-[#FFF9E5]/95 backdrop-blur-md pb-2 pt-2 px-1.5 sm:px-6 box-border w-full max-w-full overflow-x-hidden">
+        <div className="max-w-7xl mx-auto bg-white p-2 sm:p-4 rounded-2xl sm:rounded-3xl shadow-[0_4px_0_0_#E0E0E0] sm:shadow-[0_8px_0_0_#E0E0E0] border-2 border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 box-border w-full max-w-full">
+          {/* Main Flex Row */}
+          <div className="w-full flex items-center justify-between gap-1.5 sm:gap-3">
+            {/* App Title & Mascot */}
+            <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink-0">
+              <div className="w-9 h-9 sm:w-14 sm:h-14 bg-[#FF6B6B] rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-3xl shadow-xs border-2 border-white shrink-0">
+                🦉
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-2xl font-bold text-[#2D3436] tracking-tight flex items-center gap-1 truncate">
+                  <span className="truncate">آموزگار سوم</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E] shrink-0 hidden sm:inline-block">
+                    سوم
+                  </span>
+                </h1>
+                <p className="text-[11px] text-slate-500 hidden sm:block font-medium">ریاضی سوم ابتدایی</p>
+              </div>
             </div>
 
-            {/* Stars Pill */}
-            <div className="bg-[#FFEAA7] px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border-2 border-[#FDCB6E] flex items-center gap-1 text-[#D35400] font-bold text-xs sm:text-sm shadow-xs">
-              <span className="text-sm sm:text-lg">⭐</span>
-              <span>{profile.stars}</span>
-            </div>
+            {/* Profile & Rewards Stats & Actions */}
+            <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+              {/* Streak */}
+              <div className="flex items-center gap-0.5 px-2 py-1 sm:px-3 sm:py-2 bg-[#FFF3F0] border border-[#FAB1A0] rounded-full text-[#D35400] text-[11px] sm:text-sm font-bold shrink-0">
+                <Flame className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-orange-500 fill-orange-400" />
+                <span>{profile.streakDays}</span>
+              </div>
 
-            {/* Level (Desktop only) */}
-            <div className="hidden md:flex items-center gap-1 px-3 py-2 bg-purple-50 border-2 border-purple-200 rounded-full text-purple-700 text-xs font-bold">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span>سطح {profile.level}</span>
-            </div>
+              {/* Stars Pill */}
+              <div className="bg-[#FFEAA7] px-2 py-1 sm:px-4 sm:py-2 rounded-full border border-[#FDCB6E] flex items-center gap-0.5 text-[#D35400] font-bold text-[11px] sm:text-sm shadow-xs shrink-0">
+                <span>⭐</span>
+                <span>{profile.stars}</span>
+              </div>
 
-            {/* Golden Subscription Button */}
-            {isVip ? (
+              {/* Golden Subscription Button */}
+              {isVip ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound('click', soundEnabled);
+                    onOpenSubscription();
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 rounded-full border border-amber-400 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[11px] sm:text-xs font-black shadow-xs cursor-pointer shrink-0"
+                  title="اشتراک طلایی فعال است"
+                >
+                  <Crown className="w-3 h-3 sm:w-4 sm:h-4 text-white fill-white shrink-0" />
+                  <span className="hidden sm:inline">طلایی</span>
+                  {remainingDays !== null && (
+                    <span className="text-[9px] bg-black/20 px-1 rounded-full">
+                      {remainingDays}ر
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound('click', soundEnabled);
+                    onOpenSubscription();
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 rounded-full border border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] sm:text-xs font-black shadow-xs animate-pulse cursor-pointer shrink-0"
+                  title="خرید اشتراک طلایی"
+                >
+                  <Crown className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600 fill-amber-400 shrink-0" />
+                  <span>طلایی 👑</span>
+                </button>
+              )}
+
+              {/* Phone Auth Login Button */}
               <button
-                type="button"
                 onClick={() => {
                   playSound('click', soundEnabled);
-                  onOpenSubscription();
+                  onOpenPhoneAuth();
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-full border-2 border-amber-400 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-xs font-black shadow-xs hover:scale-105 transition-all cursor-pointer"
-                title="اشتراک طلایی فعال است (مشاهده جزییات)"
+                className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 rounded-full border text-[11px] sm:text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0 ${
+                  profile.isLoggedIn
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-amber-100 border-amber-300 text-amber-950 animate-pulse'
+                }`}
+                title={profile.isLoggedIn ? `ورود فعال: ${profile.phoneNumber}` : 'ورود با شماره موبایل'}
               >
-                <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white shrink-0 animate-bounce" />
-                <span className="hidden sm:inline">طلایی</span>
-                {remainingDays !== null && (
-                  <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-full">
-                    {remainingDays} روز
-                  </span>
+                {profile.isLoggedIn ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="hidden md:inline text-[11px] dir-ltr">{profile.phoneNumber?.slice(-4)}...</span>
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span className="hidden sm:inline">ورود</span>
+                  </>
                 )}
               </button>
-            ) : (
+
+              {/* Avatar Button */}
               <button
-                type="button"
                 onClick={() => {
                   playSound('click', soundEnabled);
-                  onOpenSubscription();
+                  onOpenProfile();
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-full border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-black shadow-xs hover:scale-105 transition-all cursor-pointer animate-pulse"
-                title="خرید اشتراک طلایی و بازگشایی تمامی فصل‌ها"
+                className="flex items-center gap-1 p-1 sm:pl-3 sm:pr-1.5 sm:py-1.5 bg-[#E1F5FE] border border-[#74B9FF] rounded-full hover:bg-sky-100 transition-all cursor-pointer shadow-xs min-h-[34px] shrink-0"
+                title="پروفایل و آواتار"
               >
-                <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 fill-amber-400 shrink-0" />
-                <span className="text-[11px] sm:text-xs">اشتراک طلایی 👑</span>
+                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#74B9FF] rounded-full border border-white shadow-xs flex items-center justify-center text-sm sm:text-lg shrink-0">
+                  {selectedAvatar.icon}
+                </div>
+                <span className="text-xs font-bold text-slate-800 hidden lg:inline max-w-[80px] truncate">{profile.name}</span>
               </button>
-            )}
-
-            {/* Phone Auth Login Button */}
-            <button
-              onClick={() => {
-                playSound('click', soundEnabled);
-                onOpenPhoneAuth();
-              }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-full border-2 text-xs font-bold transition-all cursor-pointer shadow-xs ${
-                profile.isLoggedIn
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
-                  : 'bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200 animate-pulse'
-              }`}
-              title={profile.isLoggedIn ? `ورود فعال: ${profile.phoneNumber}` : 'ورود با شماره موبایل'}
-            >
-              {profile.isLoggedIn ? (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="hidden lg:inline text-[11px] dir-ltr">{profile.phoneNumber?.slice(-4)}...</span>
-                  <span className="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-full font-black">فعال</span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className="w-4 h-4 text-amber-700 shrink-0" />
-                  <span className="text-xs sm:text-xs">ورود با موبایل</span>
-                </>
-              )}
-            </button>
-
-            {/* Avatar Button */}
-            <button
-              onClick={() => {
-                playSound('click', soundEnabled);
-                onOpenProfile();
-              }}
-              className="flex items-center gap-1.5 sm:gap-2.5 p-1 sm:pl-3 sm:pr-1.5 sm:py-1.5 bg-[#E1F5FE] border-2 border-[#74B9FF] rounded-full hover:bg-sky-100 transition-all cursor-pointer shadow-xs min-h-[38px]"
-            >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#74B9FF] rounded-full border-2 border-white shadow-xs flex items-center justify-center text-sm sm:text-lg shrink-0">
-                {selectedAvatar.icon}
-              </div>
-              <div className="text-right hidden sm:block">
-                <p className="font-bold text-slate-800 text-xs max-w-[90px] truncate">{profile.name}</p>
-                <p className="text-[10px] text-sky-700 font-bold">پروفایل من</p>
-              </div>
-            </button>
+            </div>
           </div>
         </div>
 

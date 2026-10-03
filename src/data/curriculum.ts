@@ -1,4 +1,5 @@
 import { ChapterInfo, Badge, QuizQuestion, ChapterId, Lesson } from '../types';
+export { BADGES } from './playstationTrophies';
 
 export const CHAPTERS: ChapterInfo[] = [
   {
@@ -1402,9 +1403,8 @@ export const AVATARS = [
   { id: 'bear', name: 'خرس مهربان 🐻', icon: '🐻' }
 ];
 
-export const BADGES: Badge[] = [
-  // --- Daily / Starter Badges ---
-  {
+// --- Old badges removed ---
+/* {
     id: 'badge_first_step',
     title: 'اولین قدم ریاضی',
     description: 'حل کردن اولین مسئله در سامانه استاد دانا',
@@ -1568,7 +1568,7 @@ export const BADGES: Badge[] = [
     category: 'monthly',
     requiredLevel: 50
   }
-];
+*/
 
 export const CHAPTER_LESSONS: Record<ChapterId, Lesson[]> = {
   // ==========================================
