@@ -14,10 +14,15 @@ import { MistakeNotebook } from './components/MistakeNotebook';
 import { ParentReport } from './components/ParentReport';
 import { ParentalConsentModal } from './components/ParentalConsentModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { OstadDanaSplash } from './components/OstadDanaSplash';
+import { DailyPracticeSection } from './components/DailyPracticeSection';
+import { ReportsPage } from './admin/ReportsPage';
 import { StudentProfile, ChapterId } from './types';
 import { BADGES } from './data/playstationTrophies';
 import { evaluateTrophies } from './utils/trophyEngine';
 import { fetchServerProfile, syncProgressToServer } from './utils/syncManager';
+import { syncAndGrowOfflineQuestionBank } from './hooks/useQuestionBank';
+import { getLocalDateKey } from './utils/dailyExercises';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v4';
 const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
@@ -80,6 +85,7 @@ const getUnlockedBadges = (prof: StudentProfile): string[] => {
 };
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('tutor');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
@@ -87,6 +93,8 @@ export default function App() {
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
   const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
   const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
+  const [tutorExternalPrompt, setTutorExternalPrompt] = useState<{ id: string; text: string } | null>(null);
+  const tutorChatContainerRef = React.useRef<HTMLDivElement>(null);
 
   // وضعیت و کنترل مودال اجباری رضایت ولی در بدو ورود (حتی حالت مهمان)
   const [isParentalConsentOpen, setIsParentalConsentOpen] = useState<boolean>(() => {
@@ -115,6 +123,14 @@ export default function App() {
     initial.unlockedBadges = getUnlockedBadges(initial);
     return initial;
   });
+
+  // همگام‌سازی و رشد خودکار بانک سوالات آفلاین (تا ۵۰۰۰ سوال) در هر بار اجرای اپ
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      syncAndGrowOfflineQuestionBank().catch(() => {});
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // ثبت و ذخیره تاییدیه رضایت والدین و همگام‌سازی با سرور در صورت لاگین
   const handleAcceptParentalConsent = () => {
@@ -367,8 +383,52 @@ export default function App() {
     setProfile(prev => ({ ...prev, ...updated }));
   };
 
+  const handleEnterOstadDana = () => {
+    setActiveTab('tutor');
+    setShowSplash(false);
+  };
+
+  if (showSplash) {
+    return (
+      <OstadDanaSplash
+        onEnter={handleEnterOstadDana}
+        soundEnabled={soundEnabled}
+        studentName={profile.name}
+      />
+    );
+  }
+
+  const handleAskDailyQuestionInTutor = (questionText: string) => {
+    setTutorExternalPrompt({
+      id: `daily_${Date.now()}`,
+      text: questionText,
+    });
+    tutorChatContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleDailyHabitCompleted = (newHabitStreak: number) => {
+    const todayKey = getLocalDateKey();
+    setProfile((prev) => {
+      const updated: StudentProfile = {
+        ...prev,
+        streakDays: Math.max(prev.streakDays || 1, newHabitStreak),
+        lastActiveDate: todayKey,
+      };
+      updated.unlockedBadges = getUnlockedBadges(updated);
+      return updated;
+    });
+
+    setCelebrationData({
+      type: 'quiz_perfect',
+      title: 'آفرین! هر ۳ تمرین امروز کامل شد!',
+      subtitle: `عادت مطالعه روزانه تو عالی پیش می‌ره (${newHabitStreak} روز پیوسته). فردا با ۳ تمرین تازه برگرد!`,
+      icon: '🌟',
+      starsEarned: 5,
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-[#FFF9E5] text-[#4A4A4A] flex flex-col font-sans dir-rtl selection:bg-[#FFEAA7]">
+    <div className="min-h-screen bg-[#FBF6EC] text-[#26354D] flex flex-col font-sans dir-rtl selection:bg-[#FFEAA7]">
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
@@ -377,24 +437,40 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenPhoneAuth={() => setIsPhoneAuthOpen(true)}
         onOpenSubscription={() => setIsSubscriptionOpen(true)}
+        onOpenSplash={() => setShowSplash(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
       />
 
       {/* Main Content Area */}
-      <main className={`flex-1 ${activeTab === 'tutor' ? 'py-1 sm:py-3 px-1 sm:px-4 pb-18 sm:pb-4' : 'py-3 sm:py-6 px-2 sm:px-6 pb-24 sm:pb-8'} max-w-7xl mx-auto w-full overflow-x-hidden box-border space-y-4`}>
+      <main className={`flex-1 min-h-0 flex flex-col ${activeTab === 'tutor' ? 'py-3 sm:py-5 px-2.5 sm:px-6 pb-24 sm:pb-10 space-y-4' : 'py-4 sm:py-6 px-3 sm:px-6 pb-24 sm:pb-10 space-y-4'} max-w-7xl mx-auto w-full overflow-x-hidden box-border`}>
         {/* Dynamic AI Math Tip of the Day - Only show on other tabs so chat has maximum vertical space */}
         {activeTab !== 'tutor' && <AIDailyTip soundEnabled={soundEnabled} />}
 
         {activeTab === 'tutor' && (
-          <AITutorChat
-            soundEnabled={soundEnabled}
-            onAddStars={handleAddStars}
-            onIncrementSolved={handleIncrementSolved}
-            profile={profile}
-            onUpdateProfile={(updated) => setProfile(updated)}
-            onOpenSubscription={() => setIsSubscriptionOpen(true)}
-          />
+          <>
+            <DailyPracticeSection
+              soundEnabled={soundEnabled}
+              onAddStars={handleAddStars}
+              onIncrementSolved={handleIncrementSolved}
+              onAskOstadDana={handleAskDailyQuestionInTutor}
+              onDailyHabitCompleted={handleDailyHabitCompleted}
+              onRecordChapterAttempt={handleRecordHistory}
+            />
+
+            <div ref={tutorChatContainerRef} className="w-full">
+              <AITutorChat
+                soundEnabled={soundEnabled}
+                onAddStars={handleAddStars}
+                onIncrementSolved={handleIncrementSolved}
+                profile={profile}
+                onUpdateProfile={(updated) => setProfile(updated)}
+                onOpenSubscription={() => setIsSubscriptionOpen(true)}
+                externalPrompt={tutorExternalPrompt}
+                onExternalPromptConsumed={() => setTutorExternalPrompt(null)}
+              />
+            </div>
+          </>
         )}
 
         {activeTab === 'games' && (
@@ -451,20 +527,37 @@ export default function App() {
             onDataWiped={handleLogout}
           />
         )}
+
+        {activeTab === 'admin_reports' && (
+          <ReportsPage
+            onClose={() => setActiveTab('tutor')}
+          />
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t-2 border-slate-200/80 py-3.5 px-4 text-center text-[11px] sm:text-xs text-slate-500 font-bold mb-16 sm:mb-0 flex flex-col sm:flex-row items-center justify-center gap-2">
-        <p>برنامه‌ریزی و طراحی ویژه کتاب ریاضی پایه سوم ابتدایی 📚⭐️</p>
-        <span className="hidden sm:inline text-slate-300">•</span>
-        <button
-          type="button"
-          onClick={() => setIsReviewPrivacyOpen(true)}
-          className="text-amber-700 hover:text-amber-800 underline font-bold transition-colors cursor-pointer"
-        >
-          سیاست حفظ حریم خصوصی کودکان و اختیارات اولیا 🛡️
-        </button>
-      </footer>
+      {/* Clean Quiet Footer on non-chat views */}
+      {activeTab !== 'tutor' && (
+        <footer className="bg-white/80 border-t border-slate-200/80 py-3.5 px-4 text-center text-xs text-slate-500 font-medium mb-16 sm:mb-0 flex flex-col sm:flex-row items-center justify-center gap-2">
+          <p>آموزش مفهومی ریاضی پایه سوم ابتدایی</p>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => setIsReviewPrivacyOpen(true)}
+            className="text-slate-700 hover:text-[#1E293B] underline font-bold transition-colors cursor-pointer"
+          >
+            حریم خصوصی کودکان و اختیارات اولیا
+          </button>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => setActiveTab('admin_reports')}
+            className="text-slate-700 hover:text-[#1E293B] font-bold transition-colors cursor-pointer"
+          >
+            پنل مدیریت گزارش‌ها
+          </button>
+        </footer>
+      )}
+
 
       {/* مودال اجباری رضایت ولی در بدو ورود (قفل کامل اپلیکیشن تا زمان پذیرش) */}
       <ParentalConsentModal

@@ -19,6 +19,13 @@ const FALLBACK_TIPS = [
   '📊 راز چوب‌خط: تا ۴ تا چوب‌خط رو کنار هم عمودی می‌کشیم، پنجمی رو مورب رویشون می‌کشیم تا شمارش ۵ تا ۵ تا راحت بشه! ✏️'
 ];
 
+const DAILY_TIP_STORAGE_KEY = 'ostad_daily_tip_cache_v1';
+
+const getTodayDateKey = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
   const [tip, setTip] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -26,6 +33,24 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
   const [tipIndex, setTipIndex] = useState<number>(0);
 
   const fetchNewTip = async (force = false) => {
+    const todayKey = getTodayDateKey();
+
+    if (!force) {
+      try {
+        const cachedRaw = localStorage.getItem(DAILY_TIP_STORAGE_KEY);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed?.date === todayKey && typeof parsed?.tip === 'string' && parsed.tip.trim()) {
+            setTip(parsed.tip);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
+
     setLoading(true);
     try {
       const url = force ? '/api/tutor/daily-tip?refresh=true' : '/api/tutor/daily-tip';
@@ -34,6 +59,11 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
         const data = await res.json();
         if (data && data.tip) {
           setTip(data.tip);
+          try {
+            localStorage.setItem(DAILY_TIP_STORAGE_KEY, JSON.stringify({ date: todayKey, tip: data.tip }));
+          } catch {
+            // Ignore storage errors
+          }
           setLoading(false);
           return;
         }
@@ -67,39 +97,27 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-4 sm:p-5 shadow-lg border-4 border-amber-200 relative overflow-hidden dir-rtl mb-6 transition-all">
-      {/* Background glowing decorations */}
-      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-amber-300/20 rounded-full blur-2xl pointer-events-none" />
-
+    <div className="rounded-[1.75rem] p-4 sm:p-5 bg-gradient-to-br from-[#FDE68A] via-[#FCD34D] to-[#FDBA74] text-[#26354D] border border-amber-200/80 shadow-[0_14px_32px_-12px_rgba(217,119,6,0.28),inset_0_2px_0_rgba(255,255,255,0.65)] relative overflow-hidden dir-rtl mb-4 transition-all">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
-        
-        {/* Left Side: Badge & Tip Content */}
         <div className="flex items-start gap-3 flex-1">
-          <div className="w-12 h-12 bg-white/20 backdrop-blur-md border-2 border-white/40 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-inner mt-0.5">
+          <div className="w-11 h-11 bg-white/80 rounded-2xl flex items-center justify-center text-xl shrink-0 shadow-[0_6px_14px_-6px_rgba(120,82,40,0.25),inset_0_1px_0_#fff] mt-0.5">
             💡
           </div>
 
           <div className="space-y-1 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 bg-amber-900/40 text-amber-100 text-[11px] sm:text-xs font-black px-2.5 py-0.5 rounded-full border border-amber-300/30">
-                <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-spin" />
-                <span>نکته روز ریاضی با آموزگار</span>
-              </span>
-              <span className="text-[10px] text-amber-100/80 font-bold hidden sm:inline">
-                تولید شده توسط آموزگار هوشمند
-              </span>
-            </div>
+            <p className="text-xs font-extrabold text-amber-950/75 flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-amber-800" />
+              <span>نکته روز ریاضی با استاد دانا</span>
+            </p>
 
-            <div className="text-sm sm:text-base font-extrabold text-white leading-relaxed pt-1">
+            <div className="text-sm sm:text-base font-bold text-[#26354D] leading-relaxed">
               {loading ? (
-                <div className="flex items-center gap-2 text-amber-100 text-xs sm:text-sm animate-pulse">
+                <div className="flex items-center gap-2 text-amber-950/70 text-xs sm:text-sm">
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>معلم هوشمند در حال آماده‌سازی یک نکته فوق‌العاده جدید...</span>
+                  <span>در حال آماده‌سازی نکته جدید...</span>
                 </div>
               ) : (
-                <p className="animate-fade-in flex items-start gap-1.5">
-                  <Quote className="w-4 h-4 text-amber-200 shrink-0 rotate-180 opacity-70 mt-1" />
+                <p className="flex items-start gap-1.5">
                   <span>{tip}</span>
                 </p>
               )}
@@ -107,18 +125,18 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
           </div>
         </div>
 
-        {/* Right Side: Action Controls */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t border-white/20 pt-2 sm:pt-0 sm:border-t-0 shrink-0">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 shrink-0">
           <button
+            type="button"
             onClick={handleCopy}
             disabled={loading || !tip}
-            className="p-2 sm:px-3 sm:py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 backdrop-blur-xs disabled:opacity-40"
+            className="px-3 py-2 bg-white/75 hover:bg-white text-[#26354D] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-xs disabled:opacity-40"
             title="کپی نکته"
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4 text-emerald-300" />
-                <span className="hidden sm:inline">کپی شد!</span>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span className="hidden sm:inline">کپی شد</span>
               </>
             ) : (
               <>
@@ -129,16 +147,16 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
           </button>
 
           <button
+            type="button"
             onClick={handleRefresh}
             disabled={loading}
-            className="px-3.5 py-2 bg-white text-amber-950 font-black rounded-xl text-xs hover:bg-amber-100 active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-            title="بروزرسانی و دریافت نکته جدید آموزگار"
+            className="clay-btn-primary px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-50 whitespace-nowrap"
+            title="دریافت نکته جدید"
           >
-            <RefreshCw className={`w-4 h-4 text-amber-700 ${loading ? 'animate-spin' : ''}`} />
-            <span>نکته جدید از آموزگار 🎲</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-amber-300 ${loading ? 'animate-spin' : ''}`} />
+            <span>نکته جدید</span>
           </button>
         </div>
-
       </div>
     </div>
   );

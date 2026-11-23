@@ -181,31 +181,31 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
       <div 
-        className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border-4 border-amber-300 relative flex flex-col no-scrollbar"
+        className="clay-card max-w-4xl w-full max-h-[92vh] overflow-y-auto relative flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header Ribbon */}
-        <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 p-5 sm:p-6 text-white text-center relative overflow-hidden shrink-0">
+        <div className="bg-gradient-to-r from-amber-300 via-[#FCD34D] to-orange-300 p-5 sm:p-6 text-[#26354D] text-center relative overflow-hidden shrink-0">
           <button
             onClick={() => {
               playSound('click', soundEnabled);
               onClose();
             }}
-            className="absolute top-4 left-4 w-9 h-9 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center transition-all cursor-pointer z-10"
+            className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/60 hover:bg-white text-[#26354D] flex items-center justify-center transition-all cursor-pointer z-10 shadow-xs"
             title="بستن"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-black mb-2 shadow-xs border border-white/30">
-            <Crown className="w-4 h-4 text-yellow-200 fill-yellow-300 animate-bounce" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/75 text-amber-950 text-xs font-extrabold mb-2 shadow-xs border border-white">
+            <Crown className="w-4 h-4 text-amber-600 fill-amber-400" />
             <span>پکیج طلایی آموزگار هوشمند ریاضی سوم</span>
           </div>
 
-          <h2 className="text-xl sm:text-3xl font-black mb-1 drop-shadow-sm">
+          <h2 className="text-xl sm:text-3xl font-extrabold mb-1 text-[#26354D]">
             بازگشایی تمامی فصل‌ها و معلم هوشمند ۲۴ ساعته
           </h2>
-          <p className="text-xs sm:text-sm text-amber-50 font-medium max-w-2xl mx-auto">
+          <p className="text-xs sm:text-sm text-[#26354D]/80 font-semibold max-w-2xl mx-auto">
             با یک‌بار اشتراک، تمام ۸ فصل کتاب ریاضی سوم دبستان، حل تمرینات با عکس و گزارش‌های اولیا در دسترس فرزند شماست.
           </p>
         </div>
@@ -213,7 +213,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         {/* Purchase Success Overlay */}
         {purchaseSuccess ? (
           <div className="p-8 text-center space-y-5 my-auto animate-scale-in">
-            <div className="w-20 h-20 bg-emerald-100 border-4 border-emerald-400 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-lg animate-bounce">
+            <div className="w-20 h-20 clay-btn-warm rounded-3xl flex items-center justify-center mx-auto text-4xl">
               👑
             </div>
             <div className="space-y-2">
@@ -319,10 +319,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       playSound('pop', soundEnabled);
                       setSelectedPlanId(plan.id);
                     }}
-                    className={`rounded-3xl p-5 border-4 transition-all cursor-pointer relative flex flex-col justify-between ${
+                    className={`rounded-3xl p-5 transition-all cursor-pointer relative flex flex-col justify-between ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/50 shadow-[0_8px_25px_rgba(245,158,11,0.25)] scale-[1.02]'
-                        : 'border-slate-200 hover:border-amber-300 bg-white hover:bg-slate-50/50'
+                        ? 'clay-card bg-amber-50/75 ring-2 ring-amber-400 scale-[1.02]'
+                        : 'clay-soft hover:bg-white'
                     }`}
                   >
                     {plan.badge && (
@@ -393,10 +393,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 playSound('pop', soundEnabled);
                 setSelectedPlanId('ai_pack_50');
               }}
-              className={`border-3 rounded-2xl p-4 transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+              className={`rounded-2xl p-4 transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                 selectedPlanId === 'ai_pack_50'
-                  ? 'border-indigo-500 bg-indigo-50/70 shadow-md'
-                  : 'border-slate-200 hover:border-indigo-300 bg-white'
+                  ? 'clay-card ring-2 ring-amber-400 bg-amber-50/60'
+                  : 'clay-soft hover:bg-white'
               }`}
             >
               <div className="flex items-center gap-3">

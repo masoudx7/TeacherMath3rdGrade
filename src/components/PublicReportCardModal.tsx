@@ -32,55 +32,55 @@ export const PublicReportCardModal: React.FC<PublicReportCardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl">
-      <div className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-7 shadow-2xl border-4 border-amber-300 relative max-h-[90vh] overflow-y-auto">
+      <div className="clay-card w-full max-w-lg p-5 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={() => {
             playSound('click', soundEnabled);
             onClose();
           }}
-          className="absolute top-4 left-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition-all cursor-pointer"
+          className="absolute top-4 left-4 w-9 h-9 rounded-full clay-soft hover:bg-white flex items-center justify-center text-slate-600 font-bold transition-all cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Banner Header */}
-        <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 rounded-2xl p-4 sm:p-6 text-white text-center relative overflow-hidden shadow-md mb-6">
-          <div className="absolute top-2 right-2 text-amber-200 opacity-30">
+        <div className="bg-gradient-to-br from-amber-300 via-[#FCD34D] to-orange-300 rounded-2xl p-4 sm:p-6 text-[#26354D] text-center relative overflow-hidden shadow-sm mb-6">
+          <div className="absolute top-2 right-2 text-white/40">
             <Sparkles className="w-16 h-16" />
           </div>
 
-          <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl border-2 border-white/40 flex items-center justify-center text-4xl mx-auto mb-3 shadow-inner">
+          <div className="w-20 h-20 bg-white/60 backdrop-blur-md rounded-2xl border border-white flex items-center justify-center text-4xl mx-auto mb-3 shadow-xs">
             {userAvatarEmoji}
           </div>
 
-          <h2 className="text-2xl font-black">{user.name}</h2>
-          <div className="inline-flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-xs font-bold mt-2 border border-white/30">
-            <Shield className="w-4 h-4 text-amber-200" />
+          <h2 className="text-2xl font-extrabold">{user.name}</h2>
+          <div className="inline-flex items-center gap-1 bg-white/65 px-3 py-1 rounded-full text-xs font-bold mt-2 border border-white/70">
+            <Shield className="w-4 h-4 text-amber-700" />
             <span>سطح {user.level} • ریاضی پایه سوم دبستان</span>
           </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3 text-center">
+          <div className="clay-soft bg-amber-50/70 p-3 text-center">
             <Star className="w-6 h-6 text-amber-500 mx-auto mb-1 fill-amber-400" />
-            <div className="text-xl font-black text-amber-900">{user.stars}</div>
+            <div className="text-xl font-extrabold text-amber-950">{user.stars}</div>
             <div className="text-[11px] font-bold text-amber-700">کل ستاره‌ها</div>
           </div>
 
-          <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3 text-center">
+          <div className="clay-soft bg-emerald-50/70 p-3 text-center">
             <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-            <div className="text-xl font-black text-emerald-900">{user.solvedCount}</div>
+            <div className="text-xl font-extrabold text-emerald-950">{user.solvedCount}</div>
             <div className="text-[11px] font-bold text-emerald-700">مسئله حل‌شده</div>
           </div>
 
-          <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-3 text-center">
-            <Trophy className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-            <div className="text-xl font-black text-purple-900">
+          <div className="clay-soft bg-sky-50/70 p-3 text-center">
+            <Trophy className="w-6 h-6 text-sky-600 mx-auto mb-1" />
+            <div className="text-xl font-extrabold text-[#26354D]">
               {user.rank ? `#${user.rank}` : '-'}
             </div>
-            <div className="text-[11px] font-bold text-purple-700">رتبه جدول</div>
+            <div className="text-[11px] font-bold text-slate-600">رتبه جدول</div>
           </div>
         </div>
 

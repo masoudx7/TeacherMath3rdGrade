@@ -1,77 +1,138 @@
 /**
- * React Hook for Progressive & Auto-Refilling Question Bank
- * هوک مدیریت بانک سوالات با شارژ خودکار تدریجی و دومرحله‌ای در پس‌زمینه
+ * React Hook for Progressive, Persistent & Offline-First Question Bank (Up to 5,000 Questions)
+ * هوک مدیریت بانک سوالات با ذخیره آفلاین در IndexedDB، همگام‌سازی سرور و رشد خودکار تا ۵۰۰۰ سوال
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QuizQuestion, ChapterId, QuestionDifficulty } from '../types';
 import { SAMPLE_QUIZZES } from '../data/curriculum';
+import {
+  getOfflineQuestions,
+  saveOfflineQuestions,
+  getOfflineBankStats,
+  OFFLINE_BANK_MAX_QUESTIONS,
+} from '../utils/offlineQuestionBank';
 
 export interface UseQuestionBankOptions {
   chapterId: ChapterId;
   difficulty?: QuestionDifficulty;
-  autoRefillThreshold?: number; // سقف هدف برای رشد بانک (پیش‌فرض: ۲۵ سوال)
+  autoRefillThreshold?: number; // سقف هدف هر فصل (۸ فصل × ۶۲۵ = ۵۰۰۰ سوال)
   enableAutoRefill?: boolean;
+}
+
+const STARTUP_GROW_SESSION_KEY = 'ostad_bank_startup_grow_v1';
+
+/**
+ * همگام‌سازی بانک سوالات سرور با حافظه آفلاین (IndexedDB) و رشد خودکار هنگام اجرای برنامه
+ */
+export async function syncAndGrowOfflineQuestionBank(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+  try {
+    // ۱. ابتدا تمام سوالات ذخیره‌شده در دیتابیس سرور را در IndexedDB کلاینت همگام می‌کنیم
+    const exportRes = await fetch('/api/questions/export-offline');
+    if (exportRes.ok) {
+      const exportData = await exportRes.json();
+      if (Array.isArray(exportData.questions) && exportData.questions.length > 0) {
+        await saveOfflineQuestions(exportData.questions);
+      }
+      if (exportData.stats && exportData.stats.remainingCapacity <= 0) {
+        return;
+      }
+    }
+
+    // ۲. در هر بار اجرای برنامه (یک بار در هر نشست)، یک بسته جدید تولید و در دیتابیس + آفلاین ذخیره می‌کنیم
+    if (sessionStorage.getItem(STARTUP_GROW_SESSION_KEY)) {
+      return;
+    }
+    sessionStorage.setItem(STARTUP_GROW_SESSION_KEY, String(Date.now()));
+
+    const growRes = await fetch('/api/questions/auto-grow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (growRes.ok) {
+      const growData = await growRes.json();
+      if (Array.isArray(growData.newQuestions) && growData.newQuestions.length > 0) {
+        await saveOfflineQuestions(growData.newQuestions);
+      }
+    }
+  } catch (err) {
+    console.warn('[OfflineBankSync] همگام‌سازی پس‌زمینه با مشکل مواجه شد، بانک آفلاین فعال است:', err);
+  }
 }
 
 export function useQuestionBank(options: UseQuestionBankOptions) {
   const {
     chapterId,
     difficulty,
-    autoRefillThreshold = 25,
-    enableAutoRefill = true,
+    autoRefillThreshold = 625,
+    enableAutoRefill = false,
   } = options;
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [offlineBankTotal, setOfflineBankTotal] = useState<number>(120);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ممانعت از اجرای همزمان، چرخه‌های تکراری و حلقه بی‌نهایت
-  const hasTriggeredRefillRef = useRef<boolean>(false);
+  const triggeredChaptersRef = useRef<Set<string>>(new Set());
   const isExecutingRefillRef = useRef<boolean>(false);
-  const currentChapterRef = useRef<ChapterId>(chapterId);
 
-  // بررسی تغییر فصل جهت ریست کردن فلگ شارژ خودکار
+  const refreshOfflineCount = useCallback(async () => {
+    const stats = await getOfflineBankStats();
+    setOfflineBankTotal(stats.total);
+  }, []);
+
   useEffect(() => {
-    if (currentChapterRef.current !== chapterId) {
-      currentChapterRef.current = chapterId;
-      hasTriggeredRefillRef.current = false;
-      isExecutingRefillRef.current = false;
-    }
-  }, [chapterId]);
+    refreshOfflineCount();
+    const handler = () => {
+      refreshOfflineCount();
+    };
+    window.addEventListener('offline-bank-updated', handler);
+    return () => window.removeEventListener('offline-bank-updated', handler);
+  }, [refreshOfflineCount]);
 
-  // لود اولیه سوالات (ترکیب سوالات کتاب درسی و سوالات ذخیره شده قبلی در KV)
+  // لود اولیه سوالات (اول از IndexedDB آفلاین + کتاب درسی، سپس همگام‌سازی با سرور)
   const fetchQuestions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    // ۱. دریافت فوری سوالات پایه از حافظه محلی
-    const chapterList = SAMPLE_QUIZZES[chapterId] || [];
-    const baseList = chapterList.filter((q) => {
-      return difficulty ? q.difficulty === difficulty : true;
-    });
+    const offlineList = await getOfflineQuestions(chapterId, difficulty);
+    if (offlineList.length > 0) {
+      setQuestions(offlineList);
+    } else {
+      const chapterList = SAMPLE_QUIZZES[chapterId] || [];
+      const baseList = chapterList.filter((q) => (difficulty ? q.difficulty === difficulty : true));
+      setQuestions(baseList);
+    }
 
     try {
-      // ۲. دریافت سوالات بروز شده از سرور / KV
-      const url = `/api/questions?chapterId=${chapterId}${difficulty ? `&difficulty=${difficulty}` : ''}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.questions) && data.questions.length > 0) {
-          setQuestions(data.questions);
-          return data.questions;
+      if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+        const url = `/api/questions?chapterId=${chapterId}${difficulty ? `&difficulty=${difficulty}` : ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.questions) && data.questions.length > 0) {
+            await saveOfflineQuestions(data.questions);
+            const mergedOffline = await getOfflineQuestions(chapterId, difficulty);
+            setQuestions(mergedOffline.length > 0 ? mergedOffline : data.questions);
+            await refreshOfflineCount();
+            return mergedOffline.length > 0 ? mergedOffline : data.questions;
+          }
         }
       }
     } catch (err) {
-      console.warn('[useQuestionBank] خطا در اتصال به سرور، استفاده از سوالات محلی:', err);
+      console.warn('[useQuestionBank] آفلاین یا عدم دسترسی به سرور؛ استفاده از بانک ذخیره‌شده دستگاه:', err);
     }
 
-    setQuestions(baseList);
-    return baseList;
-  }, [chapterId, difficulty]);
+    await refreshOfflineCount();
+    return offlineList;
+  }, [chapterId, difficulty, refreshOfflineCount]);
 
-  // متد تولید یک بسته ۳تایی سوال جدید
+  // تولید بسته ۵ تایی سوال جدید و ذخیره همزمان در دیتابیس سرور و IndexedDB آفلاین
   const generateSingleBatch = useCallback(
     async (
       targetDifficulty: QuestionDifficulty = difficulty || 'medium',
@@ -84,8 +145,8 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
           body: JSON.stringify({
             chapterId,
             difficulty: targetDifficulty,
-            count: 3,
-            existingTitles: currentPool.map((q) => q.question),
+            count: 5,
+            existingTitles: currentPool.slice(-20).map((q) => q.question),
           }),
         });
 
@@ -96,6 +157,9 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
         const data = await res.json();
         if (Array.isArray(data.newQuestions) && data.newQuestions.length > 0) {
           const freshQuestions: QuizQuestion[] = data.newQuestions;
+          await saveOfflineQuestions(freshQuestions);
+          await refreshOfflineCount();
+
           setQuestions((prev) => {
             const existingIds = new Set(prev.map((q) => q.id));
             const fresh = freshQuestions.filter((q) => !existingIds.has(q.id));
@@ -110,10 +174,9 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
         return [];
       }
     },
-    [chapterId, difficulty]
+    [chapterId, difficulty, refreshOfflineCount]
   );
 
-  // تابع در دسترس برای کاربر یا فراخوانی دستی
   const generateMore = useCallback(
     async (targetDifficulty: QuestionDifficulty = difficulty || 'medium') => {
       if (isGenerating || isExecutingRefillRef.current) return [];
@@ -128,73 +191,50 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
     [difficulty, isGenerating, generateSingleBatch, questions]
   );
 
-  // بارگذاری داده‌ها هنگام mount یا تغییر وابستگی‌ها
   useEffect(() => {
     fetchQuestions().finally(() => setIsLoading(false));
   }, [fetchQuestions]);
 
-  // ========================================================
-  // منطق شارژ خودکار تدریجی و دومرحله‌ای (Progressive Auto-Refill)
-  // ========================================================
+  // شارژ خودکار نرم هنگام باز کردن هر فصل (تا سقف ۵۰۰۰ سوال کل / ۶۲۵ در هر فصل)
   useEffect(() => {
-    // شرایط خروج سریع برای جلوگیری از حلقه یا اجرای تکراری
+    const bucketKey = `${chapterId}:${difficulty || 'all'}`;
     if (
       !enableAutoRefill ||
       isLoading ||
       isGenerating ||
       isExecutingRefillRef.current ||
-      hasTriggeredRefillRef.current
+      triggeredChaptersRef.current.has(bucketKey) ||
+      offlineBankTotal >= OFFLINE_BANK_MAX_QUESTIONS
     ) {
       return;
     }
 
-    const currentCount = questions.length;
-
-    // اگر ظرفیت پر شده باشد، نیاز به اقدامی نیست
-    if (currentCount >= autoRefillThreshold) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return;
     }
 
-    // علامت‌گذاری اینکه برای این چرخه شارژ فعال شد تا از اجرای مجدد جلوگیری شود
-    hasTriggeredRefillRef.current = true;
+    if (questions.length >= autoRefillThreshold) {
+      return;
+    }
+
+    triggeredChaptersRef.current.add(bucketKey);
     isExecutingRefillRef.current = true;
 
-    const executeRefillSequence = async () => {
+    const timer = setTimeout(async () => {
       setIsGenerating(true);
       try {
-        let activePool = [...questions];
-
-        if (currentCount < 12) {
-          // سناریو ۱: اگر کمتر از ۱۲ سوال باشد، دو بسته متوالی ۳ تایی (در مجموع ۶ سوال) تولید می‌شود
-          const firstBatch = await generateSingleBatch(difficulty || 'medium', activePool);
-          if (firstBatch.length > 0) {
-            activePool = [...activePool, ...firstBatch];
-          }
-
-          // ایجاد یک وقفه کوچک (۱.۲ ثانیه) برای جلوگیری از تلاقی یا خستگی مدل
-          await new Promise((res) => setTimeout(res, 1200));
-
-          // تولید بسته دوم
-          await generateSingleBatch(difficulty || 'medium', activePool);
-        } else if (currentCount < autoRefillThreshold) {
-          // سناریو ۲: اگر بین ۱۲ تا ۲۴ سوال باشد، تنها یک بسته ۳ تایی برای تکمیل نرم تولید می‌شود
-          await generateSingleBatch(difficulty || 'medium', activePool);
-        }
+        await generateSingleBatch(difficulty || 'medium', questions);
       } catch (err) {
-        console.warn('[useQuestionBank Refill Sequence Warning]', err);
+        console.warn('[useQuestionBank Refill Warning]', err);
       } finally {
         setIsGenerating(false);
         isExecutingRefillRef.current = false;
       }
-    };
-
-    // تاخیر کوتاه ۸۰۰ میلی‌ثانیه‌ای بعد از لود تا به هیچ وجه مانع تعامل اولیه کودک نشود
-    const timer = setTimeout(() => {
-      executeRefillSequence();
-    }, 800);
+    }, 900);
 
     return () => clearTimeout(timer);
   }, [
+    chapterId,
     questions,
     autoRefillThreshold,
     enableAutoRefill,
@@ -202,10 +242,13 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
     isGenerating,
     generateSingleBatch,
     difficulty,
+    offlineBankTotal,
   ]);
 
   return {
     questions,
+    offlineBankTotal,
+    maxQuestions: OFFLINE_BANK_MAX_QUESTIONS,
     isLoading,
     isGenerating,
     error,

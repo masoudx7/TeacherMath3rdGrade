@@ -22,7 +22,9 @@ import {
   Zap
 } from 'lucide-react';
 import { StudentProfile } from '../types';
-import { checkAiQuota, consumeAiQuota } from '../utils/subscriptionManager';
+import { checkAiQuota, consumeAiQuota, FREE_DAILY_AI_LIMIT } from '../utils/subscriptionManager';
+import { ReportButton } from './ReportButton';
+import ostadDanaEmblem from '../assets/images/ostad_dana_emblem_1795466544643.jpg';
 
 interface AITutorChatProps {
   soundEnabled: boolean;
@@ -31,6 +33,8 @@ interface AITutorChatProps {
   profile: StudentProfile;
   onUpdateProfile: (updated: StudentProfile) => void;
   onOpenSubscription: () => void;
+  externalPrompt?: { id: string; text: string } | null;
+  onExternalPromptConsumed?: () => void;
 }
 
 interface QuestionCategory {
@@ -42,7 +46,7 @@ interface QuestionCategory {
 
 const STORAGE_KEY = 'ostad_dana_chat_history_v2';
 const MAX_LOCALSTORAGE_MESSAGES = 100;
-const MAX_HISTORY_MESSAGES = 20;
+const MAX_HISTORY_MESSAGES = 6;
 
 export const AITutorChat: React.FC<AITutorChatProps> = ({ 
   soundEnabled, 
@@ -50,11 +54,14 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
   onIncrementSolved,
   profile,
   onUpdateProfile,
-  onOpenSubscription
+  onOpenSubscription,
+  externalPrompt,
+  onExternalPromptConsumed,
 }) => {
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
   const [totalQ, setTotalQ] = useState(0);
   const aiQuota = checkAiQuota(profile);
+  const lastHandledPromptIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     getAllQuestions().then(data => {
@@ -214,7 +221,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
       const limitMsg: ChatMessage = {
         id: Date.now().toString(),
         sender: 'tutor',
-        text: 'عزیزم! سهمیه ۳ سوال رایگان امروزت تمام شده است. 🌟 برای حل نامحدود تکالیف و پرسیدن همه سوالات با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته ۵۰ سوالی بگیری! 🦉💎',
+        text: `عزیزم! سهمیه ${FREE_DAILY_AI_LIMIT} سوال رایگان امروزت تمام شده است. 🌟 برای حل نامحدود تکالیف و پرسیدن همه سوالات با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته ۵۰ سوالی بگیری! 🦉💎`,
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, limitMsg]);
@@ -243,6 +250,9 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
       const historyForApi = messages.slice(-MAX_HISTORY_MESSAGES).map(m => ({
         sender: m.sender,
         text: m.text
+          .replace(/<svg[\s\S]*?<\/svg>/gi, '[شکل آموزشی]')
+          .trim()
+          .slice(0, 400)
       }));
 
       let replyText = '';
@@ -258,18 +268,22 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
           }),
         });
 
-        if (res.status === 402) {
+        if (res.status === 402 || res.status === 429) {
           const data = await res.json().catch(() => ({}));
-          if (data.code === 'QUOTA_EXCEEDED') {
+          if (data.code === 'QUOTA_EXCEEDED' || res.status === 429) {
             playSound('wrong', soundEnabled);
             const limitMsg: ChatMessage = {
               id: Date.now().toString(),
               sender: 'tutor',
-              text: 'عزیزم! سهمیه سوالات رایگان امروز روی سرور تمام شده است. 🌟 برای ادامه پرسش و پاسخ نامحدود با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته سوال اضافه بگیری! 🦉💎',
+              text:
+                data.error ||
+                'عزیزم! سهمیه سوالات رایگان امروز روی سرور تمام شده است. 🌟 برای ادامه پرسش و پاسخ نامحدود با استاد دانا، می‌تونی اشتراک طلایی تهیه کنی یا بسته سوال اضافه بگیری! 🦉💎',
               timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
             };
             setMessages(prev => [...prev, limitMsg]);
-            onOpenSubscription();
+            if (data.code === 'QUOTA_EXCEEDED') {
+              onOpenSubscription();
+            }
             setLoading(false);
             return;
           }
@@ -367,32 +381,47 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
     });
   };
 
+  useEffect(() => {
+    if (
+      externalPrompt &&
+      externalPrompt.id !== lastHandledPromptIdRef.current &&
+      externalPrompt.text.trim()
+    ) {
+      lastHandledPromptIdRef.current = externalPrompt.id;
+      handleSendMessage(externalPrompt.text);
+      onExternalPromptConsumed?.();
+    }
+  }, [externalPrompt]);
+
   return (
-    <div className="flex flex-col h-[calc(100dvh-100px)] sm:h-[calc(100dvh-110px)] max-w-5xl mx-auto space-y-2 dir-rtl">
-      {/* Sleek Thin Header Bar */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#A29BFE] p-2 sm:p-3 shadow-xs flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#FF6B6B] border-2 border-white flex items-center justify-center text-xl shadow-xs shrink-0 animate-bounce">
-            🦉
+    <div className="clay-card flex flex-col h-[540px] sm:h-[600px] min-h-0 max-w-4xl w-full mx-auto overflow-hidden dir-rtl">
+      {/* Warm Soft Chat Toolbar */}
+      <div className="px-3.5 sm:px-5 py-3 border-b border-amber-100/80 bg-[#FFFDF7] flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-[#FFF9E5] border border-amber-200/80 shadow-[0_6px_14px_-6px_rgba(120,82,40,0.25),inset_0_1px_0_#fff] overflow-hidden shrink-0">
+            <img
+              src={ostadDanaEmblem}
+              alt="استاد دانا"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover scale-105"
+            />
           </div>
           <div className="min-w-0 flex items-center gap-2">
-            <h2 className="font-black text-[#2D3436] text-sm sm:text-base truncate">
+            <h2 className="font-extrabold text-[#26354D] text-sm sm:text-base truncate">
               استاد دانا
             </h2>
-            <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              آنلاین
+            <span className="text-xs text-amber-900/55 font-medium hidden sm:inline whitespace-nowrap">
+              · آماده پاسخگویی
             </span>
           </div>
         </div>
 
         {/* Header Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* AI Quota Indicator */}
           {aiQuota.isVip ? (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black shadow-xs">
-              <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
-              <span className="hidden sm:inline">طلایی (نامحدود)</span>
+            <div className="clay-soft flex items-center gap-1 px-3 py-1.5 text-amber-900 text-xs font-bold whitespace-nowrap">
+              <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-400 shrink-0" />
+              <span className="hidden sm:inline">طلایی</span>
             </div>
           ) : (
             <button
@@ -401,62 +430,65 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                 playSound('pop', soundEnabled);
                 onOpenSubscription();
               }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black transition-all cursor-pointer shadow-xs"
+              className="clay-soft flex items-center gap-1 px-3 py-1.5 hover:bg-amber-50 text-amber-900 text-xs font-bold transition-all cursor-pointer whitespace-nowrap tabular-nums min-h-[36px]"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-600" />
-              <span>{aiQuota.remainingDaily} از ۳ رایگان</span>
+              <Zap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>{aiQuota.remainingDaily} از {FREE_DAILY_AI_LIMIT} رایگان</span>
             </button>
           )}
 
           {/* Toggle Suggested Questions Panel */}
           <button
+            type="button"
             onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 ${
-              isSuggestionsOpen 
-                ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs' 
-                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+            className={`px-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap min-h-[36px] ${
+              isSuggestionsOpen
+                ? 'clay-btn-primary'
+                : 'clay-soft text-[#26354D] hover:bg-amber-50/70'
             }`}
           >
-            <Lightbulb className="w-4 h-4 text-amber-600" />
+            <Lightbulb className={`w-3.5 h-3.5 shrink-0 ${isSuggestionsOpen ? 'text-amber-300' : 'text-amber-600'}`} />
             <span>پیشنهاد سوال</span>
-            {isSuggestionsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {isSuggestionsOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" />}
           </button>
 
           {/* New Chat Button */}
           <button
+            type="button"
             onClick={handleClearChat}
-            className="p-2 rounded-xl text-xs font-black bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-all cursor-pointer flex items-center gap-1"
+            className="clay-soft px-3 py-1.5 rounded-2xl text-xs font-bold hover:bg-rose-50 text-slate-600 hover:text-rose-700 transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap min-h-[36px]"
             title="گفتگوی جدید"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden md:inline">جدید</span>
           </button>
         </div>
       </div>
 
       {saveNotification && (
-        <div className="bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-2xl shadow-md text-center animate-in fade-in flex items-center justify-center gap-2">
-          <span>{saveNotification}</span>
+        <div className="bg-emerald-600 text-white font-bold text-xs px-4 py-2 text-center shrink-0">
+          {saveNotification}
         </div>
       )}
 
       {/* Collapsible Suggestion Panel */}
       {isSuggestionsOpen && (
-        <div className="bg-white/95 border-2 border-amber-200 rounded-2xl p-3 shadow-md space-y-3 shrink-0 transition-all animate-in fade-in duration-150">
+        <div className="bg-[#FAF3E6]/90 border-b border-amber-200/60 p-3.5 sm:px-5 space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {dynamicCategories.map((cat) => (
                 <button
                   key={cat.id}
+                  type="button"
                   onClick={() => {
                     playSound('click', soundEnabled);
                     setSelectedCatId(cat.id);
                     setSuggestionOffset(0);
                   }}
-                  className={`text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border ${
+                  className={`text-xs font-bold px-3.5 py-1.5 rounded-2xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     selectedCatId === cat.id
-                      ? 'bg-amber-500 text-amber-950 border-amber-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      ? 'clay-btn-primary'
+                      : 'clay-soft text-[#26354D] hover:bg-white'
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -466,25 +498,26 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
             </div>
 
             <button
+              type="button"
               onClick={handleShuffleSuggestions}
-              className="text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-xl border border-indigo-200 transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+              className="clay-soft text-xs font-bold hover:bg-white text-[#26354D] px-3.5 py-1.5 rounded-2xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>تازه کردن 🎲</span>
+              <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+              <span>تازه کردن</span>
             </button>
           </div>
 
-          {/* Touchable Large Chips */}
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-wrap gap-2">
             {getDisplayedQuestions().map((q, idx) => (
               <button
                 key={`${selectedCatId}-${suggestionOffset}-${idx}`}
+                type="button"
                 onClick={() => {
                   handleSendMessage(q);
                   setIsSuggestionsOpen(false);
                 }}
                 disabled={loading}
-                className="text-xs sm:text-sm bg-amber-50 hover:bg-amber-400 text-amber-950 font-bold px-3.5 py-2 rounded-xl border border-amber-300 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                className="clay-soft text-xs sm:text-sm hover:bg-[#FFF3D6] text-[#26354D] font-bold px-4 py-2 rounded-2xl transition-all cursor-pointer disabled:opacity-50"
               >
                 {q}
               </button>
@@ -493,86 +526,111 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
         </div>
       )}
 
-      {/* Main Chat Messages Viewport (Takes Full Remaining Space) */}
-      <div 
+      {/* Soft Recessed Chat Messages Viewport */}
+      <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto bg-white/90 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl p-3 sm:p-5 space-y-3 sm:space-y-4 shadow-sm overscroll-contain font-sans"
+        className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 bg-[#FAF4E8]/65 shadow-[inset_0_3px_10px_rgba(120,82,40,0.05)] overscroll-contain font-sans"
       >
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-          >
-            <div className={`flex items-start gap-2 sm:gap-3 max-w-[96%] sm:max-w-[88%] ${
-              msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
-            }`}>
-              {/* Avatar */}
-              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl flex items-center justify-center text-sm sm:text-lg shrink-0 shadow-2xs border-2 ${
-                msg.sender === 'user' 
-                  ? 'bg-[#74B9FF] border-white text-white' 
-                  : 'bg-[#FF6B6B] border-white text-white animate-bounce'
+        {messages.map((msg, index) => {
+          const prevUserMsg = messages
+            .slice(0, index)
+            .reverse()
+            .find(m => m.sender === 'user');
+          const promptQuestion = prevUserMsg ? prevUserMsg.text : 'سوال کاربر';
+
+          return (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+            >
+              <div className={`flex items-start gap-2.5 max-w-[94%] sm:max-w-[82%] ${
+                msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
               }`}>
-                {msg.sender === 'user' ? <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : '🦉'}
-              </div>
-
-              {/* Message Bubble */}
-              <div className={`p-3 sm:p-4 text-xs sm:text-[15px] leading-relaxed shadow-2xs ${
-                msg.sender === 'user'
-                  ? 'bg-gradient-to-br from-[#6C5CE7] to-[#5843E0] text-white rounded-2xl rounded-tr-none shadow-[0_2px_0_0_#4834D4] font-semibold'
-                  : 'bg-white text-[#2D3436] border-2 border-[#D8D4FD] rounded-2xl rounded-tl-none font-normal'
-              }`}>
-                {/* Body Text & SVG Rendering */}
-                <div className="dir-rtl leading-relaxed font-sans">
-                  {renderMessageBody(msg.text)}
-                </div>
-
-                {msg.sender === 'tutor' && <button onClick={() => saveQuestionLocally({ id: `ai_${Date.now()}`, text: msg.text.substring(0,80), difficulty: 'medium', tags: ['ai'], isAiGenerated: true })} className="mt-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-300">💾 ذخیره سوال</button>}
-
-                {/* Footer Controls for AI Message */}
-                {msg.sender === 'tutor' && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-400">
-                    <span className="font-bold text-slate-400">{msg.timestamp}</span>
-
-                    <div className="flex items-center gap-1">
-                      {/* Save Question Button */}
-                      <button
-                        onClick={() => handleSaveQuestion(msg.text)}
-                        className="px-2 py-1 rounded-lg font-bold hover:bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all cursor-pointer flex items-center gap-1 text-[10px]"
-                        title="ذخیره این سوال در بانک سوالات من"
-                      >
-                        <span>💾</span>
-                        <span>ذخیره سوال</span>
-                      </button>
-
-                      {/* Copy */}
-                      <button
-                        onClick={() => handleCopy(msg.id, msg.text)}
-                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                        title="کپی پاسخ"
-                      >
-                        {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
+                {/* Avatar */}
+                {msg.sender === 'user' ? (
+                  <div className="w-8 h-8 rounded-2xl bg-white border border-amber-200/70 shadow-[0_6px_14px_-6px_rgba(120,82,40,0.2)] flex items-center justify-center shrink-0 text-[#26354D] mt-0.5">
+                    <User className="w-4 h-4" />
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-2xl bg-[#FFF9E5] border border-amber-200/80 shadow-[0_6px_14px_-6px_rgba(120,82,40,0.24)] overflow-hidden shrink-0 mt-0.5">
+                    <img
+                      src={ostadDanaEmblem}
+                      alt="استاد دانا"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover scale-105"
+                    />
                   </div>
                 )}
+
+                {/* Soft Clay Message Bubble */}
+                <div className={`px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-[15px] leading-7 ${
+                  msg.sender === 'user'
+                    ? 'bg-gradient-to-b from-[#314563] to-[#23334B] text-[#FFFBF2] rounded-[1.5rem] rounded-tl-md shadow-[0_10px_22px_-10px_rgba(34,50,74,0.45),inset_0_1px_0_rgba(255,255,255,0.16)] font-medium'
+                    : 'bg-white text-[#26354D] border border-amber-100/90 rounded-[1.5rem] rounded-tr-md shadow-[0_10px_24px_-12px_rgba(120,82,40,0.16),inset_0_1px_0_#ffffff] font-normal'
+                }`}>
+                  {/* Body Text & SVG Rendering */}
+                  <div className="dir-rtl leading-7 font-sans">
+                    {renderMessageBody(msg.text)}
+                  </div>
+
+                  {/* Footer Controls for AI Message */}
+                  {msg.sender === 'tutor' && (
+                    <div className="mt-2.5 pt-2 border-t border-amber-100/80 flex items-center justify-between gap-2 text-xs text-slate-400">
+                      <span className="font-medium text-amber-900/45 tabular-nums">{msg.timestamp}</span>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <ReportButton
+                          sessionId="ostad_dana_session"
+                          messageId={msg.id}
+                          question={promptQuestion}
+                          aiResponse={msg.text}
+                          userId={profile.phoneNumber || 'guest_student'}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveQuestion(msg.text)}
+                          className="px-2.5 py-1 rounded-xl font-bold bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-700 border border-emerald-200/70 transition-colors cursor-pointer flex items-center gap-1 text-[11px] whitespace-nowrap"
+                          title="ذخیره این سوال در بانک سوالات من"
+                        >
+                          <span>ذخیره سوال</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(msg.id, msg.text)}
+                          className="p-1.5 hover:bg-amber-50 rounded-xl text-slate-500 hover:text-[#26354D] transition-colors cursor-pointer"
+                          title="کپی پاسخ"
+                        >
+                          {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="flex items-start gap-2">
-            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-[#FF6B6B] border-2 border-white text-white flex items-center justify-center text-sm sm:text-base animate-bounce shadow-2xs shrink-0">
-              🦉
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-2xl bg-[#FFF9E5] border border-amber-200/80 shadow-[0_6px_14px_-6px_rgba(120,82,40,0.24)] overflow-hidden shrink-0">
+              <img
+                src={ostadDanaEmblem}
+                alt="استاد دانا"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover scale-105"
+              />
             </div>
-            <div className="bg-white border-2 border-[#D8D4FD] rounded-2xl rounded-tl-none p-2.5 sm:p-3.5 shadow-2xs flex items-center gap-2">
+            <div className="bg-white border border-amber-100/90 shadow-[0_8px_20px_-10px_rgba(120,82,40,0.14)] rounded-[1.5rem] rounded-tr-md px-4 py-3 flex items-center gap-2.5">
               <div className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#6C5CE7] animate-ping"></span>
-                <span className="w-2 h-2 rounded-full bg-[#A29BFE] animate-ping delay-100"></span>
-                <span className="w-2 h-2 rounded-full bg-[#FF7675] animate-ping delay-200"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
               </div>
-              <span className="text-xs font-bold text-[#6C5CE7]">استاد دانا در حال فکر کردن و طراحی شکل است... 💭📐</span>
+              <span className="text-xs font-bold text-amber-900/75">استاد دانا در حال فکر کردن و طراحی شکل است...</span>
             </div>
           </div>
         )}
@@ -580,30 +638,28 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Sleek Input Controls Bar */}
-      <div className="bg-white p-2 sm:p-3 border-2 sm:border-3 border-[#A29BFE] rounded-2xl sm:rounded-3xl shadow-sm shrink-0">
+      {/* Soft Recessed Input Bar */}
+      <div className="bg-[#FFFDF8] px-3 py-2.5 sm:px-4 sm:py-3.5 border-t border-amber-100/80 shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="flex items-center gap-1.5 sm:gap-2"
+          className="clay-inset flex items-center gap-2 p-1.5 transition-all focus-within:ring-2 focus-within:ring-amber-300/80"
         >
-          {/* Text Input */}
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="سؤال، تمرین یا هر مبحث ریاضی که می‌خواهی بپرس..."
-            className="flex-1 min-w-0 bg-[#F4F5FA] border border-slate-200 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#2D3436] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] transition-all dir-rtl min-h-[40px] sm:min-h-[44px]"
+            className="flex-1 min-w-0 bg-transparent px-3.5 py-2 text-xs sm:text-sm font-medium text-[#26354D] placeholder-amber-900/40 focus:outline-none dir-rtl min-h-[42px]"
             disabled={loading}
           />
 
-          {/* Send Button */}
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="bg-[#6C5CE7] hover:bg-[#5843E0] disabled:bg-slate-200 disabled:text-slate-400 text-white font-black px-3.5 sm:px-5 py-2 sm:py-3 rounded-xl shadow-[0_2px_0_0_#4834D4] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:shadow-none min-h-[40px] sm:min-h-[44px]"
+            className="clay-btn-primary disabled:opacity-45 disabled:shadow-none font-bold px-4 sm:px-5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[42px] whitespace-nowrap"
           >
             <span className="text-xs sm:text-sm">بپرس</span>
             <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180" />
@@ -613,16 +669,16 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
       {/* Quick Quiz Modal */}
       {showQuizModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border-4 border-indigo-300 w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 dir-rtl">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div className="fixed inset-0 z-50 bg-[#26354D]/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="clay-card w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 dir-rtl">
+            <div className="flex items-center justify-between border-b border-amber-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">⚡</span>
-                <h3 className="font-black text-lg text-indigo-900">آزمون سریع ریاضی سوم</h3>
+                <h3 className="font-extrabold text-lg text-[#26354D]">آزمون سریع ریاضی سوم</h3>
               </div>
               <button
                 onClick={() => setShowQuizModal(false)}
-                className="p-1 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full clay-soft hover:bg-rose-50 text-slate-600 hover:text-rose-700 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -633,12 +689,12 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                 <p className="text-sm font-medium text-slate-600">
                   لطفاً مبحث مورد نظر خود را برای آزمون ۵ سوالی انتخاب کنید:
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {dynamicCategories.map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => handleStartQuiz(cat.id)}
-                      className="p-3 rounded-2xl bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-900 border-2 border-indigo-200 transition-all font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs group"
+                      className="clay-soft p-3 hover:bg-amber-50 text-[#26354D] transition-all font-bold text-xs flex items-center gap-2 cursor-pointer group"
                     >
                       <span className="text-lg">{cat.icon}</span>
                       <span className="truncate">{cat.name}</span>
@@ -650,17 +706,17 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
             {quizStep === 'active' && quizQuestions.length > 0 && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl">
+                <div className="flex items-center justify-between text-xs font-bold text-amber-900 bg-amber-100/70 px-3 py-1.5 rounded-xl">
                   <span>سوال {currentQuizIndex + 1} از {quizQuestions.length}</span>
                   <span>🏆 آزمون هوشمند</span>
                 </div>
 
-                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-sm font-black text-amber-950">
+                <div className="clay-inset rounded-2xl p-4 text-sm font-extrabold text-[#26354D]">
                   {quizQuestions[currentQuizIndex]}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700">پاسخ خود را بنویسید:</label>
+                  <label className="text-xs font-bold text-[#26354D]">پاسخ خود را بنویسید:</label>
                   <input
                     type="text"
                     value={quizUserAnswer}
@@ -669,7 +725,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                       if (e.key === 'Enter') handleNextQuizQuestion();
                     }}
                     placeholder="جواب خود را اینجا بنویسید..."
-                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                    className="clay-inset w-full rounded-xl px-4 py-3 text-sm font-medium text-[#26354D] focus:outline-none focus:ring-2 focus:ring-amber-300 transition-all"
                     autoFocus
                   />
                 </div>
@@ -678,7 +734,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                   <button
                     onClick={handleNextQuizQuestion}
                     disabled={!quizUserAnswer.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-black px-6 py-2.5 rounded-xl shadow-md transition-all cursor-pointer disabled:shadow-none"
+                    className="clay-btn-primary disabled:opacity-45 disabled:shadow-none font-bold px-6 py-2.5 rounded-xl transition-all cursor-pointer"
                   >
                     {currentQuizIndex + 1 === quizQuestions.length ? 'پایان و مشاهده نتیجه 🎉' : 'سوال بعدی ⬅️'}
                   </button>
@@ -688,20 +744,20 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
 
             {quizStep === 'results' && (
               <div className="space-y-5 text-center py-4">
-                <div className="w-16 h-16 bg-amber-100 border-4 border-amber-300 rounded-full flex items-center justify-center text-3xl mx-auto animate-bounce">
+                <div className="w-16 h-16 clay-btn-warm rounded-2xl flex items-center justify-center text-3xl mx-auto">
                   🏆
                 </div>
                 <div>
-                  <h4 className="text-xl font-black text-indigo-950">آزمون به پایان رسید!</h4>
+                  <h4 className="text-xl font-extrabold text-[#26354D]">آزمون به پایان رسید!</h4>
                   <p className="text-sm font-medium text-slate-600 mt-1">
                     آفرین قهرمان! شما به ۵ سوال از مبحث مورد نظر پاسخ دادید و ۵ ستاره پاداش گرفتید! ⭐
                   </p>
                 </div>
 
-                <div className="bg-slate-50 rounded-2xl p-3 max-h-48 overflow-y-auto space-y-2 text-right">
+                <div className="clay-inset rounded-2xl p-3 max-h-48 overflow-y-auto space-y-2 text-right">
                   {quizAnswersList.map((item, idx) => (
-                    <div key={idx} className="text-xs border-b border-slate-200 pb-2">
-                      <p className="font-bold text-indigo-900">{idx + 1}. {item.question}</p>
+                    <div key={idx} className="text-xs border-b border-amber-100 pb-2">
+                      <p className="font-bold text-[#26354D]">{idx + 1}. {item.question}</p>
                       <p className="text-emerald-700 font-medium mt-0.5">پاسخ شما: {item.answer}</p>
                     </div>
                   ))}
@@ -710,13 +766,13 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
                 <div className="flex gap-2 justify-center pt-2">
                   <button
                     onClick={() => setQuizStep('selecting')}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs"
+                    className="clay-soft hover:bg-white text-[#26354D] font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs"
                   >
                     انتخاب مبحث دیگر 🔄
                   </button>
                   <button
                     onClick={() => setShowQuizModal(false)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-2.5 rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                    className="clay-btn-primary font-bold px-6 py-2.5 rounded-xl cursor-pointer text-xs"
                   >
                     بازگشت به گفتگو 🌟
                   </button>

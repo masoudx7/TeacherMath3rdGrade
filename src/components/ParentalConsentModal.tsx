@@ -152,7 +152,7 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-5 sm:p-7 shadow-2xl border-4 border-amber-400 relative my-auto">
+      <div className="clay-card w-full max-w-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-7 shadow-2xl relative my-auto">
         {/* دکمه بستن فقط در حالت غیراجباری فعال است */}
         {!isMandatoryGate && onClose && (
           <button
@@ -165,23 +165,21 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
         )}
 
         {/* هدر مدال با نشان حریم خصوصی کودکان */}
-        <div className="flex items-start sm:items-center gap-3.5 mb-5 border-b border-amber-100 pb-4">
-          <div className="w-13 h-13 bg-linear-to-br from-amber-400 to-amber-500 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0">
-            <ShieldCheck className="w-8 h-8" />
+        <div className="flex items-start sm:items-center gap-3.5 mb-5 border-b border-slate-100 pb-4">
+          <div className="w-12 h-12 bg-[#1E293B] rounded-2xl flex items-center justify-center text-amber-400 shadow-xs shrink-0">
+            <ShieldCheck className="w-7 h-7" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-amber-100 text-amber-800 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full border border-amber-200">
-                {isMandatoryGate ? 'ورود نخست • تأیید ولی الزامی است' : 'تنظیمات اولیا و حریم خصوصی'}
-              </span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-800 mt-1">
+            <p className="text-xs font-bold text-amber-700">
+              {isMandatoryGate ? 'ورود نخست · تأیید ولی الزامی است' : 'تنظیمات اولیا و حریم خصوصی'}
+            </p>
+            <h2 className="text-lg sm:text-xl font-extrabold text-[#1E293B] mt-0.5">
               {isMandatoryGate 
                 ? 'رضایت ولی و سیاست حفظ حریم خصوصی کودکان' 
                 : 'بخش ویژه اولیا و حریم خصوصی کودکان'}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              سامانه هوشمند آموزش ریاضی سوم ابتدایی • منطبق بر اصول حفاظت از اطلاعات کودکان
+              سامانه هوشمند آموزش ریاضی سوم ابتدایی · منطبق بر اصول حفاظت از اطلاعات کودکان
             </p>
           </div>
         </div>
@@ -243,8 +241,8 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
             {/* کارت‌های شفاف و تفکیک‌شده: چه چیزی ذخیره می‌شود و چه چیزی نمی‌شود */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {/* چه چیزهایی ذخیره می‌شود */}
-              <div className="bg-emerald-50/70 border-2 border-emerald-200 rounded-2xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-800 font-black text-sm">
+              <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                   <span>چه داده‌هایی ذخیره می‌شوند؟</span>
                 </div>
@@ -265,7 +263,7 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
               </div>
 
               {/* چه چیزهایی هرگز ذخیره نمی‌شوند (خط قرمز ما) */}
-              <div className="bg-rose-50/70 border-2 border-rose-200 rounded-2xl p-4 space-y-2">
+              <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center gap-2 text-rose-800 font-black text-sm">
                   <MicOff className="w-5 h-5 text-rose-600 shrink-0" />
                   <span>چه چیزهایی هرگز ذخیره نمی‌شوند؟</span>
@@ -372,9 +370,9 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
             {/* بخش چک‌باکس‌های اجباری و دکمه تایید نهایی برای گیت ورود */}
             {/* ======================================================== */}
             {isMandatoryGate && (
-              <div className="bg-amber-50/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
-                <h4 className="text-xs sm:text-sm font-black text-amber-900 flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-amber-700" />
+              <div className="bg-[#FFF9E5]/80 border border-amber-200 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                <h4 className="text-xs sm:text-sm font-extrabold text-[#1E293B] flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-amber-600" />
                   تأییدیه قانونی ولی دانش‌آموز (الزامی برای ادامه)
                 </h4>
 
@@ -384,9 +382,9 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
                     type="checkbox"
                     checked={isParentConfirmed}
                     onChange={(e) => setIsParentConfirmed(e.target.checked)}
-                    className="w-5 h-5 mt-0.5 rounded-md border-2 border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0 accent-amber-500"
+                    className="w-5 h-5 mt-0.5 rounded-md border border-slate-300 text-[#1E293B] focus:ring-amber-500 cursor-pointer shrink-0 accent-[#1E293B]"
                   />
-                  <span className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-amber-900 transition-colors leading-relaxed">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-[#1E293B] transition-colors leading-relaxed">
                     من ولی یا سرپرست قانونی دانش‌آموز هستم و با استفاده فرزندم از این برنامه آموزشی موافقم.
                   </span>
                 </label>
@@ -397,9 +395,9 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
                     type="checkbox"
                     checked={isPolicyConfirmed}
                     onChange={(e) => setIsPolicyConfirmed(e.target.checked)}
-                    className="w-5 h-5 mt-0.5 rounded-md border-2 border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0 accent-amber-500"
+                    className="w-5 h-5 mt-0.5 rounded-md border border-slate-300 text-[#1E293B] focus:ring-amber-500 cursor-pointer shrink-0 accent-[#1E293B]"
                   />
-                  <span className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-amber-900 transition-colors leading-relaxed">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-[#1E293B] transition-colors leading-relaxed">
                     سیاست حفظ حریم خصوصی کودکان و شرایط استفاده را مطالعه کرده و می‌پذیرم.
                   </span>
                 </label>
@@ -409,18 +407,17 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
                   type="button"
                   onClick={handleConfirmConsent}
                   disabled={!isParentConfirmed || !isPolicyConfirmed}
-                  className={`w-full py-3 px-6 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2 ${
                     isParentConfirmed && isPolicyConfirmed
-                      ? 'bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-200 cursor-pointer transform hover:scale-[1.01]'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                      ? 'clay-btn-primary cursor-pointer'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
-                  <Sparkles className="w-5 h-5" />
-                  <span>تأیید رضایت ولی و ورود به آموزگار هوشمند ✨</span>
+                  <span>تأیید رضایت ولی و ورود به کلاس استاد دانا</span>
                 </button>
 
                 {(!isParentConfirmed || !isPolicyConfirmed) && (
-                  <p className="text-[11px] text-center text-amber-800/80 font-bold">
+                  <p className="text-[11px] text-center text-slate-500 font-medium">
                     لطفاً هر دو گزینه بالا را برای ورود به برنامه علامت بزنید.
                   </p>
                 )}

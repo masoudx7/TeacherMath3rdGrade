@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import confetti from 'canvas-confetti';
 import { Sparkles, Trophy, RotateCcw, CheckCircle2, XCircle, Flame } from 'lucide-react';
 
@@ -78,6 +79,13 @@ export const MultiplicationGame: React.FC<MultiplicationGameProps> = ({
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
       setCombo(0);
+      addMistakeInstant(
+        'multiplication_division',
+        `حاصل ضرب ${numA} × ${numB} چند است؟`,
+        String(ans),
+        String(numA * numB),
+        `اشتباه در محاسبه جدول ضرب. ${numA} دسته ${numB} تایی برابر با ${numA * numB} است.`
+      );
       setTimeout(() => {
         setFeedback(null);
         setSelectedAns(null);

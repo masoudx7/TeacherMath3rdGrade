@@ -4,8 +4,10 @@ import { CHAPTERS, SAMPLE_QUIZZES } from '../../data/curriculum';
 import { playSound } from '../../utils/sound';
 import { useQuestionBank } from '../../hooks/useQuestionBank';
 import { saveMistake } from '../../utils/mistakeStore';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
+import { removeOfflineQuestion } from '../../utils/offlineQuestionBank';
 import confetti from 'canvas-confetti';
-import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star, Flag } from 'lucide-react';
+import { Sparkles, HelpCircle, CheckCircle2, XCircle, RefreshCw, Lightbulb, Star, Flag, Database } from 'lucide-react';
 import { ReportQuestionModal } from '../ReportQuestionModal';
 
 interface AIQuizGeneratorProps {
@@ -25,15 +27,17 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
 }) => {
   const [selectedChapter, setSelectedChapter] = useState<ChapterId>(initialChapterId);
 
-  // بانک سوالات هوشمند با پر کردن خودکار در پس‌زمینه تا سقف ۲۵ سوال
+  // بانک سوالات هوشمند با پر کردن خودکار در پس‌زمینه و ذخیره در دیتابیس تا سقف ۵۰۰۰ سوال (۶۲۵ سوال در هر فصل)
   const {
     questions: bankQuestions,
+    offlineBankTotal,
+    maxQuestions,
     isGenerating,
     generateMore,
   } = useQuestionBank({
     chapterId: selectedChapter,
-    autoRefillThreshold: 25,
-    enableAutoRefill: true,
+    autoRefillThreshold: 625,
+    enableAutoRefill: false,
   });
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -46,7 +50,8 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
 
   const handleQuestionFlagged = (flaggedId: string) => {
-    // حذف فوری سوال پرچم‌گذاری شده از صفحه و ادامه با سوالات باقیمانده
+    // حذف فوری سوال پرچم‌گذاری شده از صفحه و حافظه آفلاین دستگاه
+    removeOfflineQuestion(flaggedId).catch(() => {});
     setQuestions((prev) => prev.filter((q) => q.id !== flaggedId));
     setIsAnswered(false);
     setSelectedOpt(null);
@@ -97,6 +102,13 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
         userAnswer: currentQ.options[index] || '',
         correctAnswer: currentQ.options[currentQ.correctAnswerIndex] || '',
       });
+      addMistakeInstant(
+        selectedChapter,
+        currentQ.question,
+        currentQ.options[index] || '',
+        currentQ.options[currentQ.correctAnswerIndex] || '',
+        currentQ.explanation || 'پاسخ نادرست در آزمون فصلی'
+      );
     }
   };
 
@@ -128,11 +140,15 @@ export const AIQuizGenerator: React.FC<AIQuizGeneratorProps> = ({
             </span>
           </h3>
           <p className="text-xs text-slate-500">ارزیابی هوشمند یادگیری فصل‌های مختلف کتاب ریاضی پایه سوم</p>
+          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            <span>بانک آفلاین ذخیره‌شده: {offlineBankTotal.toLocaleString('fa-IR')} از {maxQuestions.toLocaleString('fa-IR')} سوال</span>
+          </div>
         </div>
 
         <button
           onClick={() => handleGenerateAIQuiz(selectedChapter)}
-          disabled={isGenerating}
+          disabled={isGenerating || offlineBankTotal >= maxQuestions}
           className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-2xl border-2 border-amber-500 text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />

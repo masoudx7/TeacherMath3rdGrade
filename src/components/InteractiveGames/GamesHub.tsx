@@ -112,30 +112,29 @@ export const GamesHub: React.FC<GamesHubProps> = ({
             <button
               key={game.id}
               onClick={() => handleGameSelect(game.id as ActiveGame)}
-              className={`p-2.5 sm:p-3 rounded-2xl transition-all cursor-pointer text-right flex flex-col justify-between space-y-1.5 min-h-[90px] relative ${
+              className={`p-3 rounded-2xl transition-all cursor-pointer text-right flex flex-col justify-between space-y-2 min-h-[92px] relative ${
                 isActive
-                  ? 'bg-[#6C5CE7] text-white border-2 border-[#4834D4] shadow-[0_3px_0_0_#4834D4] scale-102'
+                  ? 'clay-btn-primary scale-[1.02]'
                   : locked
-                  ? 'bg-amber-50/40 hover:bg-amber-100/50 text-[#2D3436] border-2 border-amber-200/80 shadow-xs'
-                  : 'bg-white hover:bg-[#FFF9E5] text-[#2D3436] border-2 border-slate-200/80 hover:border-[#A29BFE] shadow-xs'
+                  ? 'clay-soft opacity-90 hover:bg-amber-50/70 text-[#26354D]'
+                  : 'clay-soft hover:-translate-y-0.5 text-[#26354D]'
               }`}
             >
               {locked && (
-                <div className="absolute -top-1.5 -left-1.5 bg-amber-500 text-white rounded-full p-1 shadow-xs z-10" title="ویژه اشتراک طلایی">
+                <div className="absolute -top-1.5 -left-1.5 bg-amber-500 text-white rounded-full p-1 shadow-sm z-10" title="ویژه اشتراک طلایی">
                   <Lock className="w-2.5 h-2.5" />
                 </div>
               )}
 
               <div className="flex items-center justify-between">
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr ${game.color} flex items-center justify-center text-white shadow-xs shrink-0`}>
-                  <Icon className="w-3.5 h-3.5" />
+                <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${game.color} flex items-center justify-center text-white shadow-xs shrink-0`}>
+                  <Icon className="w-4 h-4" />
                 </div>
-                {isActive && <span className="w-2 h-2 rounded-full bg-[#FFEAA7] border border-[#FDCB6E]"></span>}
-                {locked && <span className="text-[9px] font-black text-amber-700 bg-amber-100 px-1 rounded-sm">VIP</span>}
+                {locked && <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-lg">طلایی</span>}
               </div>
               <div>
-                <h4 className="font-black text-[11px] sm:text-xs leading-snug truncate">{game.title}</h4>
-                <p className={`text-[9px] sm:text-[10px] font-medium truncate mt-0.5 ${isActive ? 'text-purple-100' : 'text-slate-400'}`}>{game.desc}</p>
+                <h4 className="font-bold text-xs leading-snug truncate">{game.title}</h4>
+                <p className={`text-[11px] font-medium truncate mt-0.5 ${isActive ? 'text-amber-200/90' : 'text-slate-500'}`}>{game.desc}</p>
               </div>
             </button>
           );

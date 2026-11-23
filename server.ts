@@ -15,6 +15,16 @@ import { getSmsService } from './src/services/smsService';
 import { userStore, maskPhoneNumber } from './src/services/userStore';
 import { questionBankService, COMPACT_QUESTION_SYSTEM_PROMPT } from './src/services/questionBankService';
 import { checkAiQuota, consumeAiQuota, activatePlan } from './src/utils/subscriptionManager';
+import { reportStore } from './src/services/reportStore';
+import {
+  tokenManager,
+  ResolvedIdentity,
+  AiEndpointTag,
+  getTokenManagerConfig,
+} from './src/services/tokenManager';
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'ostad_admin_2026';
+const getTodayKey = () => new Date().toISOString().split('T')[0];
 
 async function getOrCreateStoredProfile(userId: string) {
   let stored = await userStore.getProfile(userId);
@@ -68,10 +78,9 @@ const PORT = 3000;
 
 // High-availability Gemini Models Hierarchy (Tuned for Persian 3rd grade math reasoning & OCR)
 const PRIMARY_MODELS = [
-  'gemini-3.1-flash-lite',    // Tier 1: Ultra-low latency & high RPM throughput (high availability)
-  'gemini-3.8-flash',         // Tier 2: Modern default for interactive instruction & text
-  'gemini-flash-latest',      // Tier 3: Stable floating alias
-  'gemini-3.1-pro-preview',   // Tier 4: Complex STEM/geometry & deep reasoning fallback
+  'gemini-4-hydrogen',        // Tier 1: Fast & modern general/instructional model
+  'gemini-3.1-flash-lite',    // Tier 2: Ultra-low latency & high RPM throughput
+  'gemini-flash-latest',      // Tier 3: Floating fallback alias
 ];
 
 // Helper to safely parse and extract clean base64 data and mimeType from Data URLs
@@ -111,15 +120,18 @@ function getAIClient() {
   });
 }
 
-// Robust fallback runner across models with retry & transient capacity error handling
+// Robust fallback runner across models with retry, maxOutputTokens cap & TokenManager telemetry
 async function generateGeminiContentWithFallback(
   contents: any,
   options: {
     systemInstruction?: string;
     temperature?: number;
+    maxOutputTokens?: number;
     responseMimeType?: string;
     responseSchema?: any;
     models?: string[];
+    endpointTag?: AiEndpointTag;
+    identity?: ResolvedIdentity | null;
   } = {}
 ): Promise<string> {
   const client = getAIClient();
@@ -131,6 +143,7 @@ async function generateGeminiContentWithFallback(
       const config: any = {};
       if (options.systemInstruction) config.systemInstruction = options.systemInstruction;
       if (options.temperature !== undefined) config.temperature = options.temperature;
+      if (options.maxOutputTokens !== undefined) config.maxOutputTokens = options.maxOutputTokens;
       if (options.responseMimeType) config.responseMimeType = options.responseMimeType;
       if (options.responseSchema) config.responseSchema = options.responseSchema;
 
@@ -141,6 +154,16 @@ async function generateGeminiContentWithFallback(
       });
 
       if (response && response.text) {
+        const meta = (response as any).usageMetadata;
+        await tokenManager.recordUsage({
+          identity: options.identity,
+          provider: 'gemini',
+          model: modelName,
+          endpoint: options.endpointTag || 'general',
+          promptTokens: meta?.promptTokenCount,
+          outputTokens: meta?.candidatesTokenCount,
+          totalTokens: meta?.totalTokenCount,
+        });
         return response.text;
       }
     } catch (err: any) {
@@ -166,29 +189,20 @@ async function generateGeminiContentWithFallback(
   throw lastError || new Error('امکان پاسخگویی از طریق مدل‌های هوش مصنوعی وجود نداشت.');
 }
 
-const TUTOR_SYSTEM_INSTRUCTION = `
-تو «استاد دانا» 🦉 هستی؛ یک معلم ریاضی صبور، مهربان، پرانرژی و متخصص پایه سوم دبستان ایران. هدف تو کمک به کودکان ۹ ساله برای درک عمیق مفاهیم ریاضی از طریق مثال‌های ملموس (پیتزا 🍕، شکلات 🍫، اسکناس 💰، ساعت ⏰) است.
+const IMAGE_SOLVER_SYSTEM_INSTRUCTION =
+  'تو «استاد دانا» معلم ریاضی سوم دبستان ایران هستی. تصویر تمرین را با دقت بخوان، گام‌به‌گام با زبان ساده و ارقام فارسی (۰-۹) حل کن، جواب نهایی را مشخص کن و یک سوال تمرینی مشابه کوتاه بده.';
 
-قوانین طلایی و محدودیت‌ها (بسیار مهم):
-۱. محدوده موضوعی: تو فقط و فقط به سوالات مربوط به ریاضی پایه سوم دبستان پاسخ می‌دهی. اگر کاربر درباره موضوعات غیردرسی (مثل بازی‌های کامپیوتری، شبکه‌های اجتماعی، اخبار، مسائل شخصی و...) پرسید، با لحنی مهربان بگو:
-   «من فقط در درس ریاضی می‌تونم کمکت کنم قهرمان! بیا با هم یه سوال ریاضی حل کنیم تا باهوش‌تر بشی. 🦉✨»
-۲. ایمنی کودک: هرگز از کلمات خشن، ترسناک یا نامناسب استفاده نکن. مکالمه را همیشه در فضای آموزشی و امن نگه دار. اطلاعات شخصی از کودک نپرس.
-۳. اعتراف به ندانستن: اگر جواب سوالی را نمی‌دانی یا محاسبه‌ای پیچیده است، هرگز حدس نزن (جلوگیری از توهم ریاضی). صادقانه بگو: «این سوال خیلی خوبیه، اما من دقیق جوابش رو نمی‌دونم. از معلم یا مادرت بپرس تا با هم حلش کنیم.»
-۴. راهنمایی به جای جواب دادن (روش سقراطی): هرگز جواب نهایی تمرین را مستقیم نگو. با پرسیدن سوال‌های کوچک، کودک را قدم به قدم به جواب برسان.
-۵. تطابق با کتاب درسی ایران:
-   - از روش‌های حل مسئله کتاب درسی ریاضی سوم ایران استفاده کن (مثل محور اعداد، جدول ارزش مکانی، رسم شکل برای کسر، زیر و رو کردن در تقسیم).
-   - برای اعداد از ارقام فارسی (۱، ۲، ۳، ۴، ۵، ۶، ۷، ۸، ۹، ۰) استفاده کن، نه ارقام انگلیسی.
-   - واحدهای پول را بر اساس «تومان و ریال» و واحدهای اندازه‌گیری را بر اساس سیستم متریک (سانتیمتر، میلیمتر، متر، کیلومتر) توضیح بده.
-۶. فرمت پاسخ‌دهی و تولید شکل SVG:
-   - لحن: دوستانه، با ایموجی‌های مناسب (🌟🎯🎈✨)، جملات کوتاه و قابل فهم برای کودک ۹ ساله (۱ تا ۲ جمله در هر پیام و سپس منتظر تایید کودک).
-   - زبان: فارسی ساده و روان.
-   - تولید شکلهای آموزشی (SVG): برای مفاهیم بصری مثل کسر، هندسه (محیط و مساحت)، الگوها و ساعت، حتماً کد SVG معتبر در بلوک خروجی قرار بده تا شکل روی صفحه نمایش داده شود.
-۷. تحلیل دقیق اشکال کسرها و پیتزاها:
-   - در تحلیل تصاویر پیتزا، شکل‌های هندسی یا نمودارهای کسر، دقت کن که کل قسمت‌های مساوی (مخرج کسر) و قسمت‌های رنگی‌شده یا طلایی (صورت کسر) را دقیق بشماری (مثلاً اگر پیتزا به ۴ تکه مساوی تقسیم شده و ۳ تکه آن رنگی است، کسر دقیقاً ۳/۴ یا سه چهارم است).
-`;
+const DAILY_TIP_SYSTEM_INSTRUCTION =
+  'معلم شاد ریاضی سوم دبستان ایران؛ فقط یک نکته کوتاه ۲ جمله‌ای با ایموجی و ارقام فارسی بنویس.';
 
 // Helper function for optional DeepSeek API fallback
-async function callDeepSeekChat(systemInstruction: string, messages: any[], userPrompt: string): Promise<string> {
+async function callDeepSeekChat(
+  systemInstruction: string,
+  messages: any[],
+  userPrompt: string,
+  identity?: ResolvedIdentity | null,
+  endpointTag: AiEndpointTag = 'general'
+): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error('DEEPSEEK_API_KEY تنظیم نشده است.');
 
@@ -220,6 +234,7 @@ async function callDeepSeekChat(systemInstruction: string, messages: any[], user
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: formattedMessages,
+      max_tokens: 600,
       temperature: 0.7,
     }),
   });
@@ -230,13 +245,25 @@ async function callDeepSeekChat(systemInstruction: string, messages: any[], user
   }
 
   const data = await res.json();
+  await tokenManager.recordUsage({
+    identity,
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    endpoint: endpointTag,
+    promptTokens: data?.usage?.prompt_tokens,
+    outputTokens: data?.usage?.completion_tokens,
+    totalTokens: data?.usage?.total_tokens,
+  });
   return data.choices?.[0]?.message?.content || 'پاسخی از دیپ‌سیک دریافت نشد.';
 }
 
 // Helper function for optional Groq API fallback (Tier 3 Emergency AI)
 export async function generateGroqContent(
   prompt: string | any[],
-  systemInstruction?: string
+  systemInstruction?: string,
+  maxTokens: number = 450,
+  identity?: ResolvedIdentity | null,
+  endpointTag: AiEndpointTag = 'general'
 ): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY تنظیم نشده است.');
@@ -272,7 +299,7 @@ export async function generateGroqContent(
     body: JSON.stringify({
       model,
       messages: formattedMessages,
-      max_tokens: 450,
+      max_tokens: maxTokens,
       temperature: 0.6,
     }),
   });
@@ -287,11 +314,20 @@ export async function generateGroqContent(
   if (!content || typeof content !== 'string') {
     throw new Error('پاسخ معتبری از Groq دریافت نشد.');
   }
+  await tokenManager.recordUsage({
+    identity,
+    provider: 'groq',
+    model,
+    endpoint: endpointTag,
+    promptTokens: data?.usage?.prompt_tokens,
+    outputTokens: data?.usage?.completion_tokens,
+    totalTokens: data?.usage?.total_tokens,
+  });
   return content;
 }
 
 // Health endpoint with diagnostics
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   const geminiKey = process.env.GEMINI_API_KEY;
   const deepseekKey = process.env.DEEPSEEK_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
@@ -300,6 +336,7 @@ app.get('/api/health', (req, res) => {
   const deepseekConfigured = Boolean(deepseekKey && deepseekKey.trim().length > 0);
   const groqConfigured = Boolean(groqKey && groqKey.trim().length > 0);
   const kavenegarConfigured = Boolean(kavenegarKey && kavenegarKey.trim().length > 10);
+  const globalStats = await tokenManager.getGlobalStats();
 
   res.json({
     status: 'ok',
@@ -312,18 +349,50 @@ app.get('/api/health', (req, res) => {
     kavenegarConfigured,
     models: PRIMARY_MODELS,
     cachedDailyTipDate: dailyTipCache?.date || null,
+    tokenManager: {
+      date: globalStats.date,
+      requestsToday: globalStats.requests,
+      blockedRequestsToday: globalStats.blockedRequests,
+      cacheHitsSavedToday: globalStats.cacheHitsSaved,
+      totalTokensToday: globalStats.totalTokens,
+    },
     message: geminiConfigured
       ? 'سرویس هوش مصنوعی آموزگار با موفقیت فعال و آماده پاسخگویی است.'
       : 'کلید GEMINI_API_KEY یافت نشد. سیستم در حالت محلی و فال‌بک کار می‌کند.',
   });
 });
 
+// User-scoped daily quota & token status endpoint
+app.get('/api/token-manager/status', async (req, res) => {
+  try {
+    const identity = tokenManager.resolveIdentity(req);
+    const storedProfile = identity.userId ? await getOrCreateStoredProfile(identity.userId) : null;
+    const status = await tokenManager.getQuotaStatus(identity, storedProfile);
+    res.json({ success: true, ...status });
+  } catch (err: any) {
+    res.status(500).json({ error: 'خطا در بررسی وضعیت سهمیه روزانه' });
+  }
+});
+
+// Admin Token Manager Telemetry Endpoint (Protected by ADMIN_SECRET)
+app.get('/api/admin/token-stats', async (req, res) => {
+  const secret = req.headers['x-admin-secret'] || req.headers['authorization'];
+  if (secret !== ADMIN_SECRET && secret !== `Bearer ${ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'دسترسی غیرمجاز. کلید ادمین معتبر نیست.' });
+  }
+  const stats = await tokenManager.getGlobalStats();
+  res.json({
+    success: true,
+    config: getTokenManagerConfig(),
+    stats,
+  });
+});
+
 // Admin Test Subscription Activation Endpoint
 app.post('/api/subscription/activate-test', async (req, res) => {
   const adminSecretHeader = req.headers['x-admin-secret'] || req.headers['authorization'];
-  const expectedSecret = process.env.ADMIN_SECRET || 'ostad_admin_secret_123';
 
-  if (!adminSecretHeader || (adminSecretHeader !== expectedSecret && adminSecretHeader !== `Bearer ${expectedSecret}`)) {
+  if (!adminSecretHeader || (adminSecretHeader !== ADMIN_SECRET && adminSecretHeader !== `Bearer ${ADMIN_SECRET}`)) {
     return res.status(403).json({ error: 'دسترسی غیرمجاز (Admin Secret نامعتبر)' });
   }
 
@@ -345,7 +414,7 @@ app.post('/api/subscription/activate-test', async (req, res) => {
   }
 });
 
-// 1. Chat with Math Tutor API (with verified bank, strict prompt & math validation)
+// 1. Chat with Math Tutor API (with verified bank, server TokenManager, strict prompt & math validation)
 app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, res) => {
   const { prompt, history, userId: reqUserId } = req.body;
   if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -353,20 +422,14 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
   }
 
   try {
-    const studentId = reqUserId || req.body.phoneNumber || req.headers['x-user-id'] as string || 'guest_student';
+    const identity = tokenManager.resolveIdentity(req);
+    const studentId = identity.userId || reqUserId || req.body.phoneNumber || (req.headers['x-user-id'] as string) || `ip_${identity.ip}`;
     const storedProfile = await getOrCreateStoredProfile(studentId);
-    const quotaCheck = checkAiQuota(storedProfile);
-    if (!quotaCheck.allowed) {
-      return res.status(402).json({
-        error: 'سهمیه رایگان امروز تمام شد',
-        code: 'QUOTA_EXCEEDED'
-      });
-    }
 
-    // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path)
-    // اگر سوال دانش‌آموز از مباحث و سوالات پرتکرار و حساس است، پاسخ استاندارد و اعتبارسنجی‌شده بازگردانده می‌شود.
+    // ۱. بررسی بانک پاسخ‌های ایمن و از پیش تأییدشده (Safe Fast-Path — مصرف ۰ توکن)
     const safeMatch = findVerifiedSafeResponse(prompt);
     if (safeMatch) {
+      tokenManager.recordCacheHitSaved('tutor_chat');
       const verifiedText = safeMatch.svgDiagram 
         ? `${safeMatch.socraticResponse}\n\n${safeMatch.svgDiagram}`
         : safeMatch.socraticResponse;
@@ -377,6 +440,27 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
         text: validated.cleanText,
         isVerified: true,
         safeTopic: safeMatch.title
+      });
+    }
+
+    // ۲. بررسی و ثبت سهمیه روزانه در TokenManager سمت سرور (به ازای کاربر و IP)
+    const profileQuota = checkAiQuota(storedProfile);
+    if (!profileQuota.allowed) {
+      return res.status(402).json({
+        error: 'سهمیه رایگان امروز تمام شد',
+        code: 'QUOTA_EXCEEDED',
+      });
+    }
+
+    const tmCheck = await tokenManager.checkAndConsumeRequest(identity, storedProfile, 'tutor_chat');
+    if (!tmCheck.allowed) {
+      return res.status(429).json({
+        error: tmCheck.message || 'سهمیه درخواست‌های روزانه هوش مصنوعی شما تکمیل شده است.',
+        code: 'QUOTA_EXCEEDED',
+        reason: tmCheck.reason,
+        remainingRequests: 0,
+        dailyLimit: tmCheck.dailyLimit,
+        resetAtIso: tmCheck.resetAtIso,
       });
     }
 
@@ -394,17 +478,22 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
     const contents: any[] = [];
     if (Array.isArray(history) && history.length > 0) {
       let lastRole: string | null = null;
-      history.forEach((msg: any) => {
-        if (!msg || !msg.text) return;
+      history.slice(-6).forEach((msg: any) => {
+        if (!msg || typeof msg.text !== 'string' || !msg.text.trim()) return;
         const role = msg.sender === 'user' ? 'user' : 'model';
         // Gemini contents MUST start with 'user'. Skip leading 'model' messages.
         if (contents.length === 0 && role === 'model') {
           return;
         }
+        const compactText = msg.text
+          .replace(/<svg[\s\S]*?<\/svg>/gi, '[شکل آموزشی]')
+          .trim()
+          .slice(0, 400);
+        if (!compactText) return;
         if (role !== lastRole) {
           contents.push({
             role: role,
-            parts: [{ text: msg.text }],
+            parts: [{ text: compactText }],
           });
           lastRole = role;
         }
@@ -413,9 +502,9 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
 
     // Always ensure valid user message at end
     if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-      contents[contents.length - 1] = { role: 'user', parts: [{ text: prompt }] };
+      contents[contents.length - 1] = { role: 'user', parts: [{ text: prompt.slice(0, 500) }] };
     } else {
-      contents.push({ role: 'user', parts: [{ text: prompt }] });
+      contents.push({ role: 'user', parts: [{ text: prompt.slice(0, 500) }] });
     }
 
     let responseText = '';
@@ -423,29 +512,43 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
     try {
       responseText = await generateGeminiContentWithFallback(contents, {
         systemInstruction: OSTAD_DANA_SYSTEM_INSTRUCTION,
-        temperature: 0.5,
+        temperature: 0.45,
+        maxOutputTokens: 600,
+        endpointTag: 'tutor_chat',
+        identity,
       });
     } catch (err: any) {
       console.warn('[Gemini Chat Error / Quota Exhausted]:', err?.message || err);
     }
 
     if (responseText && responseText.trim()) {
+      const updatedStored = consumeAiQuota(storedProfile);
+      await userStore.saveProfile({ ...storedProfile, ...updatedStored, updatedAt: new Date().toISOString() }).catch(() => {});
       // ۲. عبور خروجی مدل از لایه اعتبارسنجی و تصحیح محاسبات ریاضی
       const validated = validateAndCorrectTutorResponse(responseText);
       return res.json({ 
         text: validated.cleanText,
         corrected: validated.corrected,
-        issuesCount: validated.issues.length 
+        issuesCount: validated.issues.length,
+        remainingRequests: tmCheck.remainingRequests,
+        dailyLimit: tmCheck.dailyLimit,
       });
     }
 
     // Fallback to Groq if configured (Tier 2 AI fallback)
     if (process.env.GROQ_API_KEY) {
       try {
-        const groqText = await generateGroqContent(contents, OSTAD_DANA_SYSTEM_INSTRUCTION);
+        const groqText = await generateGroqContent(contents, OSTAD_DANA_SYSTEM_INSTRUCTION, 450, identity, 'tutor_chat');
         if (groqText && groqText.trim()) {
+          const updatedStored = consumeAiQuota(storedProfile);
+          await userStore.saveProfile({ ...storedProfile, ...updatedStored, updatedAt: new Date().toISOString() }).catch(() => {});
           const validated = validateAndCorrectTutorResponse(groqText);
-          return res.json({ text: validated.cleanText, provider: 'groq' });
+          return res.json({
+            text: validated.cleanText,
+            provider: 'groq',
+            remainingRequests: tmCheck.remainingRequests,
+            dailyLimit: tmCheck.dailyLimit,
+          });
         }
       } catch (groqErr: any) {
         console.warn('[Groq Chat Error]:', groqErr?.message || groqErr);
@@ -455,10 +558,17 @@ app.post(['/api/tutor/chat', '/tutor/chat', '/chat', '/api/chat'], async (req, r
     // Fallback to DeepSeek if configured (Tier 3 AI fallback)
     if (process.env.DEEPSEEK_API_KEY) {
       try {
-        const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt);
+        const dsText = await callDeepSeekChat(OSTAD_DANA_SYSTEM_INSTRUCTION, contents, prompt, identity, 'tutor_chat');
         if (dsText && dsText.trim()) {
+          const updatedStored = consumeAiQuota(storedProfile);
+          await userStore.saveProfile({ ...storedProfile, ...updatedStored, updatedAt: new Date().toISOString() }).catch(() => {});
           const validated = validateAndCorrectTutorResponse(dsText);
-          return res.json({ text: validated.cleanText, provider: 'deepseek' });
+          return res.json({
+            text: validated.cleanText,
+            provider: 'deepseek',
+            remainingRequests: tmCheck.remainingRequests,
+            dailyLimit: tmCheck.dailyLimit,
+          });
         }
       } catch (dsErr: any) {
         console.warn('[DeepSeek Chat Error]:', dsErr?.message || dsErr);
@@ -489,18 +599,23 @@ app.post(['/api/tutor/solve-image', '/tutor/solve-image', '/solve-image'], async
       return res.status(400).json({ error: 'تصویر ارسال نشده است.' });
     }
 
+    const identity = tokenManager.resolveIdentity(req);
+    const storedProfile = identity.userId ? await getOrCreateStoredProfile(identity.userId) : null;
+    const tmCheck = await tokenManager.checkAndConsumeRequest(identity, storedProfile, 'solve_image');
+    if (!tmCheck.allowed) {
+      return res.status(429).json({
+        error: tmCheck.message || 'سهمیه روزانه پردازش تصویر شما به پایان رسیده است. لطفاً فردا دوباره امتحان کنید.',
+        code: 'QUOTA_EXCEEDED',
+        reason: tmCheck.reason,
+        remainingRequests: 0,
+        dailyLimit: tmCheck.dailyLimit,
+        resetAtIso: tmCheck.resetAtIso,
+      });
+    }
+
     const { cleanBase64, mimeType: extractedMime } = parseBase64Image(imageBase64, mimeType);
 
-    const promptText = `
-این عکس حاوی صفحه کتاب، دفتر، شکل هندسی یا تصویر کسر ریاضی پایه سوم ابتدایی است.
-وظایف تو:
-۱. متن، اعداد، کسرها، پیتزاها یا شکل‌های داخل تصویر را با دقت بسیار بالا بخوان و بشمار. (به‌ویژه در شکل‌های کسر پیتزا: کل تکه‌های مساوی = مخرج، تکه‌های رنگی یا طلایی = صورت).
-۲. مسئله را به روش گام‌به‌گام کتاب ریاضی سوم دبستان با لحن شاد، کودکانه و مثال ملموس توضیح بده.
-۳. جواب آخر را با کادر یا شکل واضح مشخص کن.
-۴. در پایان، یک سوال خیلی شبیه به همین سوال برای تمرین اختصاصی کودک طرح کن.
-
-${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${userQuestion}` : ''}
-    `;
+    const promptText = `این تصویر تمرین ریاضی سوم دبستان را تحلیل کن و قدم‌به‌گام حلش کن.${userQuestion ? ` یادداشت دانش‌آموز: ${String(userQuestion).slice(0, 200)}` : ''}`;
 
     let responseText = '';
     try {
@@ -520,8 +635,11 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
           },
         ],
         {
-          systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-          temperature: 0.4,
+          systemInstruction: IMAGE_SOLVER_SYSTEM_INSTRUCTION,
+          temperature: 0.35,
+          maxOutputTokens: 700,
+          endpointTag: 'solve_image',
+          identity,
         }
       );
     } catch (err: any) {
@@ -531,7 +649,15 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
     }
 
     if (responseText) {
-      return res.json({ explanation: responseText });
+      if (storedProfile) {
+        const updatedStored = consumeAiQuota(storedProfile);
+        await userStore.saveProfile({ ...storedProfile, ...updatedStored, updatedAt: new Date().toISOString() }).catch(() => {});
+      }
+      return res.json({
+        explanation: responseText,
+        remainingRequests: tmCheck.remainingRequests,
+        dailyLimit: tmCheck.dailyLimit,
+      });
     }
 
     throw new Error('امکان تحلیل تصویر با مدل‌های هوش مصنوعی وجود نداشت.');
@@ -553,17 +679,30 @@ ${userQuestion ? `سوال یا درخواست ویژه دانش‌آموز: ${u
 // 3. Generate Custom Quiz Questions API
 app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'], async (req, res) => {
   const { chapterId = 'patterns', chapterTitle, difficulty = 'medium', count = 3 } = req.body;
+  const safeCount = Math.min(5, Math.max(1, Number(count) || 3));
 
   try {
+    const identity = tokenManager.resolveIdentity(req);
+    const storedProfile = identity.userId ? await getOrCreateStoredProfile(identity.userId) : null;
+    const tmCheck = await tokenManager.checkAndConsumeRequest(identity, storedProfile, 'generate_quiz');
+
+    if (!tmCheck.allowed) {
+      const fallbackList = SAMPLE_QUIZZES[chapterId] || SAMPLE_QUIZZES['patterns'] || [];
+      const questions = [...fallbackList].sort(() => 0.5 - Math.random()).slice(0, safeCount);
+      return res.json({ questions, fallback: true, quotaLimited: true });
+    }
+
     let responseText = '';
-    const prompt = `یک آزمون کوتاه ${count} سوالی از درس ریاضی پایه سوم ابتدایی برای فصل "${chapterTitle || chapterId}" با درجه سختی "${difficulty}" تولید کن.
-    سوالات باید استاندارد، شاد و کاملاً منطبق بر کتاب ریاضی سوم دبستان ایران با گزینه‌های ۴ تایی باشند.`;
+    const prompt = `${safeCount} سوال چهارگزینه‌ای ریاضی سوم دبستان فصل «${chapterTitle || chapterId}» سطح «${difficulty}» بساز.`;
 
     try {
       responseText = await generateGeminiContentWithFallback(
         prompt,
         {
-          systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
+          systemInstruction: COMPACT_QUESTION_SYSTEM_PROMPT,
+          maxOutputTokens: 1000,
+          endpointTag: 'generate_quiz',
+          identity,
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.ARRAY,
@@ -578,8 +717,8 @@ app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'],
                   description: '4 گزینه برای پاسخ',
                 },
                 correctAnswerIndex: { type: Type.INTEGER, description: 'اندیس گزینه صحیح از 0 تا 3' },
-                explanation: { type: Type.STRING, description: 'توضیح کامل و گام به گام پاسخ' },
-                hint: { type: Type.STRING, description: 'یک راهنمایی کوچک و دوستانه' },
+                explanation: { type: Type.STRING, description: 'توضیح کوتاه پاسخ' },
+                hint: { type: Type.STRING, description: 'یک راهنمایی کوتاه' },
               },
               required: ['question', 'options', 'correctAnswerIndex', 'explanation', 'hint'],
             },
@@ -612,8 +751,9 @@ app.post(['/api/tutor/generate-quiz', '/tutor/generate-quiz', '/generate-quiz'],
   }
 });
 
-// 4. Cached Daily Math Tip Engine (Phase 1 Caching)
-let dailyTipCache: { date: string; tip: string } | null = null;
+// 4. Cached Daily Math Tip Engine (Phase 1 Caching + 5-min AI Refresh Cooldown)
+let dailyTipCache: { date: string; tip: string; lastAiAt: number } | null = null;
+const DAILY_TIP_AI_COOLDOWN_MS = 5 * 60 * 1000;
 
 app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
@@ -621,6 +761,7 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
 
   // Return cached tip if available and not forced
   if (!forceRefresh && dailyTipCache && dailyTipCache.date === todayDateStr && dailyTipCache.tip) {
+    tokenManager.recordCacheHitSaved('daily_tip');
     return res.json({ tip: dailyTipCache.tip, cached: true, date: todayDateStr });
   }
 
@@ -637,38 +778,43 @@ app.get(['/api/tutor/daily-tip', '/tutor/daily-tip', '/daily-tip'], async (req, 
     '📊 راز چوب‌خط: تا ۴ تا چوب‌خط رو کنار هم عمودی می‌کشیم، پنجمی رو مورب رویشون می‌کشیم تا شمارش ۵ تا ۵ تا راحت بشه! ✏️'
   ];
 
-  try {
-    const promptText = `
-یک نکته، ترفند، راز یادگیری یا مسئله کوتاه و بسیاااار شاد و انگیزشی ریاضی برای یک دانش‌آموز پایه سوم ابتدایی در ایران بنویس.
-نکته می‌تواند درباره یکی از موضوعات زیر باشد:
-- ترفند ضرب یا تقسیم سریع (مثل ضرب ۵ یا ۱۰)
-- راز کسرها یا پیتزای ریاضی
-- ترفند محیط و مساحت
-- خوندن ساعت و زمان بعدازظهر
-- پول ایران (تبدیل تومان و ریال)
-- الگوهای عددی شگفت‌انگیز
-- جمع و تفریق تکنیکی اعداد ۴ رقمی
+  // Protect API quota from repeated rapid refresh clicks or exhausted global budget
+  const budgetAvailable = await tokenManager.isGlobalBudgetAvailable();
+  if (
+    !budgetAvailable ||
+    (forceRefresh &&
+      dailyTipCache &&
+      dailyTipCache.date === todayDateStr &&
+      Date.now() - dailyTipCache.lastAiAt < DAILY_TIP_AI_COOLDOWN_MS)
+  ) {
+    tokenManager.recordCacheHitSaved('daily_tip');
+    const rotatedTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    return res.json({ tip: rotatedTip, cached: true, fallback: true, date: todayDateStr });
+  }
 
-پاسخ باید حداکثر ۲ تا ۳ جمله کوتاه، همراه با ایموجی‌های دوست‌داشتنی و خنده‌رو باشد. فقط خود نکته را بازگردان بدون هیچ مقدمه اضافی.
-    `;
+  try {
+    const promptText =
+      'یک نکته یا ترفند کوتاه ۲ جمله‌ای درباره ریاضی سوم دبستان (ضرب، کسر، ساعت، تومان و ریال یا محیط و مساحت) بنویس.';
 
     let responseText = '';
     try {
       responseText = await generateGeminiContentWithFallback(promptText, {
-        systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
-        temperature: 0.85,
+        systemInstruction: DAILY_TIP_SYSTEM_INSTRUCTION,
+        temperature: 0.75,
+        maxOutputTokens: 160,
+        endpointTag: 'daily_tip',
       });
     } catch (err: any) {
       // Handled by fallback list
     }
 
     if (responseText) {
-      dailyTipCache = { date: todayDateStr, tip: responseText.trim() };
+      dailyTipCache = { date: todayDateStr, tip: responseText.trim(), lastAiAt: Date.now() };
       return res.json({ tip: responseText.trim(), cached: false, date: todayDateStr });
     }
 
     const randomTip = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    dailyTipCache = { date: todayDateStr, tip: randomTip };
+    dailyTipCache = { date: todayDateStr, tip: randomTip, lastAiAt: Date.now() };
     return res.json({ tip: randomTip, cached: false, fallback: true, date: todayDateStr });
 
   } catch (err: any) {
@@ -1425,7 +1571,100 @@ app.post('/api/questions/answer', async (req, res) => {
   }
 });
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'ostad_admin_2026';
+// ==========================================
+// Report Incorrect Answer Endpoints
+// ==========================================
+
+app.post('/api/report-answer', async (req, res) => {
+  try {
+    const { sessionId, messageId, question, aiResponse, issueType, explanation, userId, timestamp } = req.body;
+
+    if (!messageId || !question || !aiResponse || !issueType || !userId) {
+      return res.status(400).json({ error: 'اطلاعات گزارش ناقص است. لطفاً تمامی فیلدهای الزامی را ارسال کنید.' });
+    }
+
+    const validTypes = ['wrong_calculation', 'wrong_method', 'irrelevant', 'inappropriate'];
+    if (!validTypes.includes(issueType)) {
+      return res.status(400).json({ error: 'نوع اشکال انتخابی معتبر نیست.' });
+    }
+
+    // Rate limiting: Max 10 reports per user per hour
+    const rateCheck = await checkRateLimit(userId, 10, 3600, 'reports_user');
+    if (!rateCheck.success) {
+      return res.status(429).json({
+        error: 'تعداد گزارش‌های شما در این ساعت بیش از حد مجاز (حداکثر ۱۰ گزارش در ساعت) است. لطفاً بعداً دوباره تلاش کنید.'
+      });
+    }
+
+    const saved = await reportStore.saveReport({
+      sessionId: sessionId || 'default_session',
+      messageId,
+      question,
+      aiResponse,
+      issueType,
+      explanation,
+      userId,
+      timestamp: timestamp || Date.now(),
+    });
+
+    res.json({
+      success: true,
+      message: 'گزارش شما با موفقیت ثبت شد.',
+      reportId: saved.id,
+    });
+  } catch (err: any) {
+    console.error('[Report API Exception]:', err);
+    res.status(500).json({ error: 'خطا در ثبت گزارش پاسخ اشتباه' });
+  }
+});
+
+app.get('/api/admin/reports', async (req, res) => {
+  try {
+    const secret = req.headers['x-admin-secret'] || req.headers['authorization'];
+    if (secret !== ADMIN_SECRET && secret !== `Bearer ${ADMIN_SECRET}`) {
+      return res.status(401).json({ error: 'دسترسی غیرمجاز. کلید ادمین معتبر نیست.' });
+    }
+
+    const { status, issueType, search } = req.query as any;
+    const reports = await reportStore.getAllReports({
+      status,
+      issueType,
+      search,
+    });
+
+    res.json({ success: true, count: reports.length, reports });
+  } catch (err: any) {
+    console.error('[Admin Reports Exception]:', err);
+    res.status(500).json({ error: 'خطا در دریافت لیست گزارش‌ها' });
+  }
+});
+
+app.post('/api/admin/reports/action', async (req, res) => {
+  try {
+    const secret = req.headers['x-admin-secret'] || req.headers['authorization'];
+    if (secret !== ADMIN_SECRET && secret !== `Bearer ${ADMIN_SECRET}`) {
+      return res.status(401).json({ error: 'دسترسی غیرمجاز. کلید ادمین معتبر نیست.' });
+    }
+
+    const { reportKey, action } = req.body;
+    if (!reportKey || !action) {
+      return res.status(400).json({ error: 'شناسه گزارش و نوع عملیات الزامی است.' });
+    }
+
+    if (action === 'mark_reviewed') {
+      await reportStore.markReviewed(reportKey);
+      return res.json({ success: true, message: 'گزارش به عنوان بررسی‌شده علامت‌گذاری شد.' });
+    } else if (action === 'delete') {
+      await reportStore.deleteReport(reportKey);
+      return res.json({ success: true, message: 'گزارش با موفقیت حذف شد.' });
+    } else {
+      return res.status(400).json({ error: 'نوع عملیات مشخص شده معتبر نیست.' });
+    }
+  } catch (err: any) {
+    console.error('[Admin Report Action Exception]:', err);
+    res.status(500).json({ error: 'خطا در انجام عملیات روی گزارش' });
+  }
+});
 
 // گزارش اشکال در سوال توسط کاربر یا دانش‌آموز (قرنطینه و خروج فوری از آزمون)
 app.post('/api/questions/:id/flag', async (req, res) => {
@@ -1500,58 +1739,226 @@ app.post('/api/questions/:id/reject', async (req, res) => {
   }
 });
 
-// تولید یک بسته ۳ تایی سوال جدید با کیفیت بدون خستگی یا مقاومت مدل
-app.post('/api/questions/generate', async (req, res) => {
-  try {
-    const { chapterId = 'patterns', difficulty = 'medium', existingTitles = [] } = req.body;
+// تولید بسته سوال جدید با کیفیت، اعتبارسنجی، سقف ۵۰۰۰ سوال و ذخیره دائمی در دیتابیس
+async function generateAndPersistQuestionBatch(
+  chapterId: any,
+  difficulty: any,
+  existingTitles: string[] = [],
+  count: number = 5,
+  useDeterministicOnly: boolean = false,
+  identity?: ResolvedIdentity | null
+) {
+  let rawResponse = '';
 
-    // ۱. ساخت پرامپت فشرده و دقیق برای ۳ سوال
-    const promptText = questionBankService.buildPromptForBatch(chapterId, difficulty, existingTitles);
+  if (!useDeterministicOnly) {
+    const promptText = questionBankService.buildPromptForBatch(chapterId, difficulty, existingTitles, count);
 
-    // ۲. فراخوانی مدل با سیستم پرامپت اختصاصی و فرمت JSON
-    let rawResponse = '';
     try {
       rawResponse = await generateGeminiContentWithFallback(promptText, {
         systemInstruction: COMPACT_QUESTION_SYSTEM_PROMPT,
         temperature: 0.7,
+        maxOutputTokens: 1100,
         responseMimeType: 'application/json',
+        endpointTag: 'question_bank',
+        identity,
       });
     } catch (genErr: any) {
-      console.warn('[Question Gen] Model call error, returning fallback:', genErr?.message);
+      console.warn('[Question Gen] Gemini call error, trying Groq fallback:', genErr?.message);
     }
 
-    if (!rawResponse) {
-      return res.status(500).json({ error: 'عدم دریافت پاسخ از مدل هوش مصنوعی' });
-    }
-
-    // ۳. پارس ایمن آرایه JSON
-    let parsedArray: any[] = [];
-    try {
-      // پاک‌سازی تگ‌های markdown در صورت وجود
-      const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      parsedArray = JSON.parse(cleanJson);
-      if (!Array.isArray(parsedArray)) {
-        if (parsedArray && typeof parsedArray === 'object') {
-          parsedArray = (parsedArray as any).questions || [parsedArray];
-        }
+    if (!rawResponse && process.env.GROQ_API_KEY) {
+      try {
+        rawResponse = await generateGroqContent(promptText, COMPACT_QUESTION_SYSTEM_PROMPT, 1200, identity, 'question_bank');
+      } catch (groqErr: any) {
+        console.warn('[Question Gen] Groq fallback error:', groqErr?.message);
       }
-    } catch (parseErr) {
-      console.error('JSON parse error on generated questions:', parseErr, rawResponse);
-      return res.status(500).json({ error: 'خطا در ساختار خروجی سوالات' });
     }
 
-    // ۴. ذخیره در Vercel KV با بررسی تکراری نبودن (Deduplication)
-    const saved = await questionBankService.saveNewQuestions(chapterId, difficulty, parsedArray);
+    if (!rawResponse && process.env.DEEPSEEK_API_KEY) {
+      try {
+        rawResponse = await callDeepSeekChat(COMPACT_QUESTION_SYSTEM_PROMPT, [], promptText, identity, 'question_bank');
+      } catch (dsErr: any) {
+        console.warn('[Question Gen] DeepSeek fallback error:', dsErr?.message);
+      }
+    }
+  } else {
+    tokenManager.recordCacheHitSaved('question_bank');
+  }
+
+  let parsedArray: any[] = [];
+  if (rawResponse) {
+    try {
+      const noThink = rawResponse.replace(/<think>[\s\S]*?<\/think>/gi, '');
+      const cleanJson = noThink.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const arrayMatch = cleanJson.match(/\[[\s\S]*\]/);
+      const jsonToParse = arrayMatch ? arrayMatch[0] : cleanJson;
+      const parsed = JSON.parse(jsonToParse);
+      if (Array.isArray(parsed)) {
+        parsedArray = parsed;
+      } else if (parsed && typeof parsed === 'object') {
+        parsedArray = parsed.questions || [parsed];
+      }
+    } catch (parseErr: any) {
+      console.warn('[Question Gen] AI JSON parse failed, using deterministic curriculum generator:', parseErr?.message);
+    }
+  }
+
+  let saved = await questionBankService.saveNewQuestions(chapterId, difficulty, parsedArray);
+
+  // اگر مدل‌های هوش مصنوعی در دسترس نبودند یا سهمیه رشد خودکار پر شده بود، مولد الگوریتمی دقیق کتاب سوم جایگزین می‌شود (۰ توکن)
+  if (saved.length === 0) {
+    const deterministic = questionBankService.generateDeterministicBatch(chapterId, difficulty, count);
+    saved = await questionBankService.saveNewQuestions(chapterId, difficulty, deterministic);
+  }
+
+  const stats = await questionBankService.getStats();
+  return { saved, stats };
+}
+
+
+app.post('/api/questions/generate', async (req, res) => {
+  try {
+    const { chapterId = 'patterns', difficulty = 'medium', existingTitles = [], count = 5 } = req.body;
+    const preStats = await questionBankService.getStats();
+
+    if (preStats.remainingCapacity <= 0) {
+      return res.json({
+        success: true,
+        limitReached: true,
+        generatedCount: 0,
+        newQuestions: [],
+        stats: preStats,
+        message: `بانک سوالات به سقف کامل (${preStats.maxQuestions} سوال) رسیده است.`,
+      });
+    }
+
+    const identity = tokenManager.resolveIdentity(req);
+    const storedProfile = identity.userId ? await getOrCreateStoredProfile(identity.userId) : null;
+    const tmCheck = await tokenManager.checkAndConsumeRequest(identity, storedProfile, 'question_bank');
+
+    const safeCount = Math.min(5, Math.max(3, Number(count) || 5), preStats.remainingCapacity);
+    const { saved, stats } = await generateAndPersistQuestionBatch(
+      chapterId,
+      difficulty,
+      existingTitles,
+      safeCount,
+      !tmCheck.allowed,
+      identity
+    );
 
     res.json({
       success: true,
+      limitReached: stats.remainingCapacity <= 0,
+      quotaFallbackUsed: !tmCheck.allowed,
       generatedCount: saved.length,
       newQuestions: saved,
-      message: `تعداد ${saved.length} سوال جدید با موفقیت به بانک اضافه شد.`,
+      stats,
+      message: `تعداد ${saved.length} سوال جدید با موفقیت در دیتابیس ذخیره شد.`,
     });
   } catch (err: any) {
     console.error('Error generating questions batch:', err);
     res.status(500).json({ error: 'خطا در فرآیند تولید سوال' });
+  }
+});
+
+// رشد خودکار بانک سوالات در هنگام اجرای اپلیکیشن (با کول‌داون ۵ دقیقه و سقف ۶ بار هوش مصنوعی در روز + فال‌بک الگوریتمی ۰ توکن)
+let lastAutoGrowAt = 0;
+const AUTO_GROW_COOLDOWN_MS = 5 * 60 * 1000;
+const MAX_DAILY_AI_AUTOGROW = 6;
+let autoGrowAiTracker = { date: getTodayKey(), count: 0 };
+
+app.post('/api/questions/auto-grow', async (req, res) => {
+  try {
+    const preStats = await questionBankService.getStats();
+    if (preStats.remainingCapacity <= 0) {
+      return res.json({
+        success: true,
+        limitReached: true,
+        skipped: false,
+        generatedCount: 0,
+        newQuestions: [],
+        stats: preStats,
+        message: 'بانک سوالات به ظرفیت نهایی ۵۰۰۰ سوال رسیده است.',
+      });
+    }
+
+    const now = Date.now();
+    if (now - lastAutoGrowAt < AUTO_GROW_COOLDOWN_MS) {
+      return res.json({
+        success: true,
+        skipped: true,
+        generatedCount: 0,
+        newQuestions: [],
+        stats: preStats,
+        message: 'رشد خودکار به‌تازگی انجام شده است.',
+      });
+    }
+    lastAutoGrowAt = now;
+
+    const today = getTodayKey();
+    if (autoGrowAiTracker.date !== today) {
+      autoGrowAiTracker = { date: today, count: 0 };
+    }
+    const budgetOk = await tokenManager.isGlobalBudgetAvailable();
+    const useDeterministicOnly = !budgetOk || autoGrowAiTracker.count >= MAX_DAILY_AI_AUTOGROW;
+    if (!useDeterministicOnly) {
+      autoGrowAiTracker.count += 1;
+    }
+
+    const { chapterId, difficulty } = await questionBankService.pickNextGrowthTarget();
+    const existingInBucket = await questionBankService.getQuestions(chapterId, difficulty);
+    const recentTitles = existingInBucket.slice(-5).map((q) => q.question);
+    const batchCount = Math.min(5, preStats.remainingCapacity);
+
+    const { saved, stats } = await generateAndPersistQuestionBatch(
+      chapterId,
+      difficulty,
+      recentTitles,
+      batchCount,
+      useDeterministicOnly
+    );
+
+    res.json({
+      success: true,
+      skipped: false,
+      limitReached: stats.remainingCapacity <= 0,
+      chapterId,
+      difficulty,
+      generatedCount: saved.length,
+      newQuestions: saved,
+      stats,
+      message: `تعداد ${saved.length} سوال جدید برای فصل ${chapterId} تولید و در دیتابیس ذخیره شد.`,
+    });
+  } catch (err: any) {
+    console.warn('[AutoGrow] Background generation skipped due to error:', err?.message || err);
+    const stats = await questionBankService.getStats().catch(() => null);
+    res.json({
+      success: false,
+      skipped: true,
+      generatedCount: 0,
+      newQuestions: [],
+      stats,
+      message: 'در این لحظه تولید خودکار انجام نشد؛ سوالات ذخیره‌شده آماده استفاده هستند.',
+    });
+  }
+});
+
+// دریافت کل بانک سوالات فعال برای همگام‌سازی کامل با دیتابیس آفلاین مرورگر (IndexedDB)
+app.get('/api/questions/export-offline', async (req, res) => {
+  try {
+    const [questions, stats] = await Promise.all([
+      questionBankService.getAllExportQuestions(),
+      questionBankService.getStats(),
+    ]);
+    res.json({
+      success: true,
+      count: questions.length,
+      stats,
+      questions,
+    });
+  } catch (err: any) {
+    console.error('Error exporting offline question bank:', err);
+    res.status(500).json({ error: 'خطا در خروجی بانک سوالات آفلاین' });
   }
 });
 
@@ -1565,6 +1972,7 @@ app.get('/api/questions/stats', async (req, res) => {
     res.status(500).json({ error: 'خطا در دریافت آمار بانک سوالات' });
   }
 });
+
 
 // Vite & Static file handling
 async function startServer() {

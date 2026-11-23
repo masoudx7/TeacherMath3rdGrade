@@ -74,41 +74,41 @@ export const MyQuestionsView: React.FC<MyQuestionsViewProps> = ({ profile, sound
   return (
     <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border animate-in fade-in duration-300">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="clay-card p-6 sm:p-7 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="space-y-2 text-center md:text-right">
-          <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold backdrop-blur-xs">
+          <div className="inline-flex items-center gap-2 bg-amber-100/80 border border-amber-200/80 text-amber-900 px-3 py-1 rounded-full text-xs font-bold">
             <span>📚</span>
             <span>بانک جامع سوالات ریاضی سوم</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black">مدیریت و بانک سوالات هوشمند</h2>
-          <p className="text-indigo-100 text-xs sm:text-sm font-medium">
-            مجموعه ۲۰۰ سوال پایه آفلاین + سوالات هوش مصنوعی ذخیره شده شما
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#26354D]">مدیریت و بانک سوالات هوشمند</h2>
+          <p className="text-slate-600 text-xs sm:text-sm font-medium">
+            مجموعه سوالات پایه آفلاین + سوالات هوش مصنوعی ذخیره شده شما
           </p>
         </div>
 
-        <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex items-center gap-4 backdrop-blur-md">
+        <div className="clay-inset rounded-2xl p-4 flex items-center gap-5 shrink-0">
           <div className="text-center">
-            <span className="block text-2xl sm:text-3xl font-black text-amber-300">{totalCount}</span>
-            <span className="text-[11px] text-indigo-100 font-bold">کل سوالات بانک</span>
+            <span className="block text-2xl sm:text-3xl font-extrabold text-[#26354D] tabular-nums">{totalCount}</span>
+            <span className="text-[11px] text-slate-600 font-bold">کل سوالات بانک</span>
           </div>
-          <div className="h-8 w-px bg-white/20"></div>
+          <div className="h-8 w-px bg-amber-200/80"></div>
           <div className="text-center">
-            <span className="block text-2xl sm:text-3xl font-black text-emerald-300">{aiQuestions.length}</span>
-            <span className="text-[11px] text-indigo-100 font-bold">سوالات هوش مصنوعی</span>
+            <span className="block text-2xl sm:text-3xl font-extrabold text-amber-600 tabular-nums">{aiQuestions.length}</span>
+            <span className="text-[11px] text-slate-600 font-bold">سوالات هوش مصنوعی</span>
           </div>
         </div>
       </div>
 
       {/* Status & Sync Bar */}
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="clay-soft p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+          <div className="w-10 h-10 rounded-xl clay-btn-warm flex items-center justify-center text-[#26354D]">
             <Database className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-slate-800">وضعیت ذخیره‌سازی محلی (IndexedDB)</span>
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-bold text-sm text-[#26354D]">وضعیت ذخیره‌سازی محلی (IndexedDB)</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             </div>
             <p className="text-xs text-slate-500">سوالات پایه و هوش مصنوعی روی دستگاه شما به‌صورت آفلاین امن ذخیره شده‌اند.</p>
           </div>
@@ -140,34 +140,34 @@ export const MyQuestionsView: React.FC<MyQuestionsViewProps> = ({ profile, sound
       )}
 
       {/* AI Generated Saved Questions Section */}
-      <div className="bg-white border-2 border-indigo-100 rounded-3xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b pb-3">
+      <div className="clay-card p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-amber-100 pb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black text-base text-indigo-950">سوالات ذخیره شده توسط هوش مصنوعی ({aiQuestions.length})</h3>
+            <Sparkles className="w-5 h-5 text-amber-600" />
+            <h3 className="font-extrabold text-base text-[#26354D]">سوالات ذخیره شده توسط هوش مصنوعی ({aiQuestions.length})</h3>
           </div>
           <span className="text-xs text-slate-400 font-medium">ذخیره شده در مرورگر شما</span>
         </div>
 
         {aiQuestions.length === 0 ? (
-          <div className="text-center py-10 space-y-2 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+          <div className="text-center py-10 space-y-2 clay-inset rounded-2xl">
             <span className="text-3xl">🤖</span>
-            <p className="text-sm font-bold text-slate-700">هنوز سوالی از هوش مصنوعی ذخیره نکرده‌اید!</p>
-            <p className="text-xs text-slate-400">هنگام گفتگو با استاد دانا، روی دکمه «ذخیره این سوال 💾» کلیک کنید تا اینجا ثبت شود.</p>
+            <p className="text-sm font-bold text-[#26354D]">هنوز سوالی از هوش مصنوعی ذخیره نکرده‌اید!</p>
+            <p className="text-xs text-slate-500">هنگام گفتگو با استاد دانا، روی دکمه «ذخیره این سوال 💾» کلیک کنید تا اینجا ثبت شود.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {aiQuestions.map((q) => (
-              <div key={q.id} className="bg-indigo-50/50 border border-indigo-200 rounded-2xl p-4 flex items-start justify-between gap-3 shadow-2xs">
+              <div key={q.id} className="clay-soft bg-amber-50/50 rounded-2xl p-4 flex items-start justify-between gap-3">
                 <div className="space-y-1.5 min-w-0">
-                  <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900 text-[10px] font-black">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-950 text-[10px] font-bold">
                     هوش مصنوعی 🧠
                   </span>
-                  <p className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed">{q.text}</p>
+                  <p className="text-xs sm:text-sm font-bold text-[#26354D] leading-relaxed">{q.text}</p>
                   {q.tags && q.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1">
                       {q.tags.map((t, idx) => (
-                        <span key={idx} className="text-[10px] bg-white text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-200 font-medium">
+                        <span key={idx} className="text-[10px] bg-white text-slate-700 px-2 py-0.5 rounded-lg border border-amber-200/70 font-medium">
                           #{t}
                         </span>
                       ))}
@@ -188,11 +188,11 @@ export const MyQuestionsView: React.FC<MyQuestionsViewProps> = ({ profile, sound
       </div>
 
       {/* Base Questions Bank Section */}
-      <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between border-b pb-3 gap-3">
+      <div className="clay-card p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between border-b border-amber-100 pb-3 gap-3">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-black text-base text-slate-900">بانک سوالات پایه (۲۰۰ سوال استاندارد کتاب سوم)</h3>
+            <h3 className="font-extrabold text-base text-[#26354D]">بانک سوالات پایه ({totalCount} سوال استاندارد و ذخیره‌شده)</h3>
           </div>
 
           {/* Category Filter */}

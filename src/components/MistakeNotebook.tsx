@@ -78,7 +78,34 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
   const [retryFeedback, setRetryFeedback] = useState<{ isCorrect: boolean; message: string } | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
-  // Sync to localStorage
+  // Sync to localStorage and listen to real-time additions
+  useEffect(() => {
+    const loadMistakes = () => {
+      try {
+        const saved = localStorage.getItem(MISTAKES_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMistakes(parsed);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    loadMistakes();
+
+    const handleStorage = () => loadMistakes();
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('mistake-added', handleStorage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('mistake-added', handleStorage);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(mistakes));
@@ -306,25 +333,23 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
             return (
               <div
                 key={m.id}
-                className={`bg-white rounded-3xl border-2 p-5 sm:p-6 transition-all space-y-4 ${
-                  m.resolved
-                    ? 'border-emerald-200 bg-emerald-50/20 shadow-xs'
-                    : 'border-rose-200 shadow-[0_4px_0_0_#FFEAEA]'
+                className={`clay-card p-5 sm:p-6 transition-all space-y-4 ${
+                  m.resolved ? 'bg-emerald-50/30' : ''
                 }`}
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-200/70">
                       {chapterInfo ? `فصل ${chapterInfo.chapterNumber}: ${chapterInfo.title}` : 'ریاضی سوم'}
                     </span>
                     {m.resolved ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         برطرف شده و یاد گرفته شد
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
                         <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                         نیاز به مرور
                       </span>
@@ -337,8 +362,8 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
                       onClick={() => handleSpeak(m.id, `${m.question}. پاسخ درست: ${m.correctAnswer}. توضیح: ${m.explanation}`)}
                       className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         speakingId === m.id
-                          ? 'bg-[#6C5CE7] text-white animate-pulse'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          ? 'clay-btn-primary'
+                          : 'clay-soft text-slate-600 hover:text-[#26354D]'
                       }`}
                       title="خواندن صوتی متن مسئله و توضیح"
                     >
@@ -396,15 +421,15 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
                       onClick={() => handleStartRetry(m)}
                       className={`w-full py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                         m.resolved
-                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
-                          : 'bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5'
+                          ? 'clay-soft hover:bg-white text-[#26354D]'
+                          : 'clay-btn-primary'
                       }`}
                     >
                       <RotateCcw className="w-4 h-4" />
-                      <span>{m.resolved ? 'حل دوباره برای تثبیت مهارت' : 'حل مجدد و دریافت ۳ ستاره پاداش ⭐'}</span>
+                      <span>{m.resolved ? 'حل دوباره برای تثبیت مهارت' : 'حل مجدد و دریافت ۳ ستاره پاداش'}</span>
                     </button>
                   ) : (
-                    <div className="bg-slate-50 border-2 border-[#6C5CE7] rounded-2xl p-4 space-y-3">
+                    <div className="clay-inset p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-[#6C5CE7] flex items-center gap-1">
                           <RotateCcw className="w-4 h-4" />
@@ -444,7 +469,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
                         <div
                           className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
                             retryFeedback.isCorrect
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 animate-bounce'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                               : 'bg-rose-100 text-rose-800 border border-rose-300'
                           }`}
                         >

@@ -112,18 +112,18 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   return (
     <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border">
       {/* Title Header */}
-      <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] p-6 shadow-sm space-y-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 bg-[#FFEAA7] text-[#D35400] px-3 py-1 rounded-full text-xs font-bold border border-[#FDCB6E]">
-            <BookOpen className="w-4 h-4 text-[#D35400]" />
+      <div className="clay-card p-6 space-y-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 bg-amber-100/80 text-amber-900 px-3 py-1 rounded-full text-xs font-bold border border-amber-200/70">
+            <BookOpen className="w-4 h-4 text-amber-700" />
             <span>کتاب درسی رسمی ریاضی سوم دبستان (۸ فصل کامل)</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-[#2D3436]">درس‌نامه‌ها، مثال‌های حل‌شده و دست‌ورزی تعاملی</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#26354D]">درس‌نامه‌ها، مثال‌های حل‌شده و دست‌ورزی تعاملی</h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
             آموزش مفهومی هر فصل با تصاویر و فرمول‌های طلایی، مثال‌های روزمره و اتصال مستقیم به ۱۰ بازی تعاملی
           </p>
         </div>
-        <div className="w-14 h-14 bg-[#6C5CE7] rounded-2xl flex items-center justify-center text-3xl text-white shadow-xs shrink-0">
+        <div className="w-14 h-14 clay-btn-primary rounded-2xl flex items-center justify-center text-3xl shrink-0">
           📖
         </div>
       </div>
@@ -138,35 +138,33 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
           return (
             <div
               key={chapter.id}
-              className={`bg-white rounded-[2rem] p-5 sm:p-6 shadow-[0_6px_0_0_#E0E0E0] transition-all space-y-4 flex flex-col justify-between ${
-                isChapterLocked
-                  ? 'border-4 border-amber-200/90 hover:border-amber-400 bg-gradient-to-b from-white to-amber-50/20'
-                  : 'border-4 border-[#FFEAA7] hover:border-[#FDCB6E]'
+              className={`clay-card p-5 sm:p-6 transition-all space-y-4 flex flex-col justify-between hover:-translate-y-0.5 ${
+                isChapterLocked ? 'bg-gradient-to-b from-white to-amber-50/40' : ''
               }`}
             >
               <div className="space-y-3.5">
                 {/* Top Badge & Number */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black px-3 py-1 rounded-full bg-[#FFEAA7] text-[#D35400] border border-[#FDCB6E]">
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 border border-amber-200/70">
                       فصل {chapter.chapterNumber}
                     </span>
                     {chapter.chapterNumber <= 2 ? (
-                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
-                        رایگان ✨
+                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                        رایگان
                       </span>
                     ) : isChapterLocked ? (
-                      <span className="text-[11px] font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                         <Lock className="w-3 h-3 text-amber-700" />
                         <span>ویژه طلایی</span>
                       </span>
                     ) : (
-                      <span className="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                         <Crown className="w-3 h-3 text-amber-600 fill-amber-400" />
                         <span>طلایی فعال</span>
                       </span>
                     )}
-                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full hidden sm:inline">
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100/80 px-2.5 py-1 rounded-full hidden sm:inline">
                       {lessonCount} درس‌نامه
                     </span>
                   </div>
@@ -180,14 +178,14 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                 </div>
 
                 {/* Topics Bullet points */}
-                <div className="bg-[#FFF9E5] border-2 border-[#FFEAA7] rounded-2xl p-3.5 space-y-2">
-                  <span className="text-xs font-black text-[#D35400] flex items-center gap-1.5">
-                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                <div className="clay-inset p-3.5 space-y-2">
+                  <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                    <Lightbulb className="w-4 h-4 text-amber-600" />
                     مباحث کلیدی این فصل:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {chapter.topics.map((topic, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
+                      <div key={idx} className="flex items-center gap-1.5 text-xs text-[#26354D] font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         <span>{topic}</span>
                       </div>
@@ -206,45 +204,45 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                         handleGoToGame(chapter.id);
                       }
                     }}
-                    className="bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                    className="clay-soft p-3 flex items-center justify-between gap-3 cursor-pointer transition-all group hover:bg-amber-50/60"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 bg-[#6C5CE7] text-white rounded-xl flex items-center justify-center text-lg shadow-xs group-hover:scale-105 transition-transform shrink-0">
+                      <div className="w-9 h-9 clay-btn-warm rounded-xl flex items-center justify-center text-lg group-hover:scale-105 transition-transform shrink-0">
                         <Gamepad2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-black text-indigo-950 group-hover:text-indigo-700 transition-colors">
+                        <div className="text-xs font-bold text-[#26354D]">
                           بازی تعاملی: {chapter.gameTitle}
                         </div>
-                        <div className="text-[11px] text-indigo-800/80 font-medium line-clamp-1">
+                        <div className="text-[11px] text-slate-500 font-medium line-clamp-1">
                           {chapter.gameDescription || 'دست‌ورزی و تمرین زنده مفاهیم ریاضی'}
                         </div>
                       </div>
                     </div>
-                    <ChevronLeft className="w-4 h-4 text-indigo-500 group-hover:-translate-x-1 transition-transform shrink-0" />
+                    <ChevronLeft className="w-4 h-4 text-amber-700 group-hover:-translate-x-1 transition-transform shrink-0" />
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
               {isChapterLocked ? (
-                <div className="pt-2 border-t border-slate-100">
+                <div className="pt-2 border-t border-amber-100/80">
                   <button
                     onClick={() => {
                       playSound('pop', soundEnabled);
                       if (onOpenSubscription) onOpenSubscription();
                     }}
-                    className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black py-3 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.02]"
+                    className="w-full clay-btn-warm font-bold py-3 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Crown className="w-4 h-4 text-white fill-white" />
-                    <span>بازگشایی فصل {chapter.chapterNumber} با اشتراک طلایی 👑</span>
+                    <Crown className="w-4 h-4 fill-[#26354D]" />
+                    <span>بازگشایی فصل {chapter.chapterNumber} با اشتراک طلایی</span>
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-amber-100/80">
                   <button
                     onClick={() => handleOpenLessons(chapter)}
-                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
                     title="مشاهده تدریس، فرمول، مثال‌ها و تمرین‌ها"
                   >
                     <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -253,19 +251,19 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
 
                   <button
                     onClick={() => handleGoToGame(chapter.id)}
-                    className="bg-amber-50 hover:bg-amber-100 text-amber-900 border-2 border-amber-300 font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-bold py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
                     title="ورود مستقیم به بازی و دست‌ورزی تعاملی این فصل"
                   >
                     <Gamepad2 className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>بازی و دست‌ورزی 🎮</span>
+                    <span>بازی و دست‌ورزی</span>
                   </button>
 
                   <button
                     onClick={() => handleGoToQuiz(chapter.id)}
-                    className="bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white font-black py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_0_#4834D4] hover:translate-y-0.5 active:shadow-none"
+                    className="clay-btn-primary font-bold py-2.5 px-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     title="شرکت در آزمون ۴ گزینه‌ای با نمره و ستاره"
                   >
-                    <Sparkles className="w-4 h-4 text-[#FFEAA7] shrink-0" />
+                    <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
                     <span>آزمون تستی</span>
                   </button>
                 </div>
@@ -277,18 +275,18 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
 
       {/* Interactive Lesson & Visual Models Modal */}
       {selectedLessonChapter && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="clay-card max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#6C5CE7] to-[#4834D4] text-white p-4 sm:p-5 flex items-center justify-between gap-4 shrink-0">
+            <div className="bg-gradient-to-r from-[#2D3F5B] to-[#22324A] text-[#FFFBF2] p-4 sm:p-5 flex items-center justify-between gap-4 shrink-0">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="bg-white/20 text-white text-xs font-black px-3 py-0.5 rounded-full">
+                  <span className="bg-white/15 text-amber-200 text-xs font-bold px-3 py-0.5 rounded-full">
                     فصل {selectedLessonChapter.chapterNumber}
                   </span>
-                  <h3 className="text-base sm:text-xl font-black">{selectedLessonChapter.title}</h3>
+                  <h3 className="text-base sm:text-xl font-extrabold">{selectedLessonChapter.title}</h3>
                 </div>
-                <p className="text-xs text-purple-100 font-medium">درس‌نامه‌ها، مدل‌های مفهومی، مثال‌های حل‌شده و تمرین‌های پله‌پله</p>
+                <p className="text-xs text-slate-200 font-medium">درس‌نامه‌ها، مدل‌های مفهومی، مثال‌های حل‌شده و تمرین‌های پله‌پله</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -365,12 +363,12 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                       )}
                       className={`p-3 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                         speakingId === currentLesson.id
-                          ? 'bg-[#6C5CE7] text-white animate-pulse'
-                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 shadow-xs'
+                          ? 'clay-btn-primary'
+                          : 'clay-soft text-[#26354D] hover:bg-white'
                       }`}
                       title="خواندن صوتی متن درس"
                     >
-                      <Volume2 className="w-5 h-5 text-[#6C5CE7]" />
+                      <Volume2 className={`w-5 h-5 ${speakingId === currentLesson.id ? 'text-white' : 'text-amber-600'}`} />
                     </button>
                   </div>
 

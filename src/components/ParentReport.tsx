@@ -3,6 +3,7 @@ import { StudentProfile, ChapterId } from '../types';
 import { CHAPTERS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
 import { ParentalConsentModal } from './ParentalConsentModal';
+import { BADGES } from '../data/playstationTrophies';
 import { 
   Users, 
   Award, 
@@ -17,7 +18,11 @@ import {
   Star,
   Flame,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  Target,
+  HeartHandshake,
+  Lightbulb,
+  GraduationCap
 } from 'lucide-react';
 
 interface ParentReportProps {
@@ -57,18 +62,22 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
 
   const overallAssessment = getAssessmentLabel(totalMastery);
 
+  // Unlocked badges objects
+  const unlockedBadgesList = BADGES.filter(b => profile.unlockedBadges?.includes(b.id));
+
   // Share text for SMS/WhatsApp
-  const shareText = `📊 گزارش تحصیلی ریاضی سوم ابتدایی
+  const shareText = `📊 گزارش تحصیلی پیشرفته ریاضی سوم دبستان
 نام دانش‌آموز: ${profile.name}
-سطح مهارت: سطح ${profile.level} (امتیاز تسلط کل: ${totalMastery}٪)
-تعداد ستاره‌ها: ⭐ ${profile.stars}
-مسائل حل شده: 📝 ${profile.solvedCount} مسئله
-استمرار یادگیری: 🔥 ${profile.streakDays} روز متوالی
+🌟 سطح مهارت: سطح ${profile.level} (امتیاز تسلط کل: ${totalMastery}٪)
+⭐ مجموع ستاره‌ها: ${profile.stars}
+📝 مسائل حل شده: ${profile.solvedCount} تمرین
+🔥 استمرار یادگیری: ${profile.streakDays} روز متوالی
 
-نقاط قوت: ${strongChapters.length > 0 ? strongChapters.join('، ') : 'در حال ارزیابی'}
-مباحث نیازمند تمرین: ${weakChapters.length > 0 ? weakChapters.join('، ') : 'همه مباحث در سطح مطلوب'}
+✅ نقاط قوت: ${strongChapters.length > 0 ? strongChapters.join('، ') : 'در حال ارزیابی'}
+⚠️ نیازمند مرور: ${weakChapters.length > 0 ? weakChapters.join('، ') : 'تمامی مباحث در سطح مطلوب'}
 
-تهیه شده توسط آموزگار هوشمند ریاضی سوم ابتدایی 🦉✨`;
+💡 پیام مشاور: فرزند شما با استمرار روزانه می‌تواند به قهرمان ریاضی تبدیل شود. تشویق و همراهی شما بهترین محرک است!
+تهیه شده در سامانه آموزگار هوشمند ریاضی سوم ابتدایی 🦉✨`;
 
   const handleCopyReport = () => {
     playSound('click', soundEnabled);
@@ -87,17 +96,17 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
   return (
     <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-5xl mx-auto space-y-6 dir-rtl box-border print:p-0 print:m-0">
       {/* Header Banner */}
-      <div className="bg-white rounded-[2rem] border-4 border-[#6C5CE7] p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="clay-card p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 print:border print:rounded-none">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 bg-purple-100 text-purple-800 px-3.5 py-1 rounded-full text-xs font-bold border border-purple-200">
-            <Users className="w-4 h-4 text-purple-700" />
-            <span>ویژه والدین، معلمان و مشاوران تحصیلی</span>
+          <div className="inline-flex items-center gap-1.5 bg-amber-100/80 text-amber-900 px-3.5 py-1 rounded-full text-xs font-bold border border-amber-200/70">
+            <Users className="w-4 h-4 text-amber-700" />
+            <span>گزارش جامع تحلیلی اولیا و مشاوران تحصیلی</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">
-            گزارش تحلیلی و کارنامه جامع رشد دانش‌آموز
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#26354D] tracking-tight">
+            کارنامه رشد و تحلیل عملکرد دانش‌آموز
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-xl leading-relaxed">
-            این گزارش بر اساس عملکرد واقعی دانش‌آموز «{profile.name}» در حل تمرینات، آزمون‌های فصول و رفع اشتباهات به صورت هوشمند محاسبه شده است.
+            این گزارش بر اساس فعالیت‌های آموزشی، تمرین‌های حل‌شده و تسلط بر فصل‌های کتاب ریاضی سوم «{profile.name}» به صورت هوشمند آماده شده است.
           </p>
         </div>
 
@@ -105,24 +114,24 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
         <div className="flex items-center gap-2 print:hidden shrink-0 flex-wrap">
           <button
             onClick={() => setIsPrivacyModalOpen(true)}
-            className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+            className="clay-soft flex items-center gap-1.5 hover:bg-amber-50 text-amber-900 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4 text-amber-700" />
-            <span>حریم خصوصی و تنظیمات اولیا 🛡️</span>
+            <span>حریم خصوصی اولیا</span>
           </button>
           <button
             onClick={handleCopyReport}
-            className="flex items-center gap-1.5 bg-[#6C5CE7] hover:bg-[#5b4cc4] text-white px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+            className="clay-btn-primary flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold cursor-pointer"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-            <span>{copied ? 'متن گزارش کپی شد!' : 'کپی برای اولیا (پیامک / شاد)'}</span>
+            <span>{copied ? 'متن گزارش کپی شد!' : 'کپی متن گزارش برای اولیا'}</span>
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+            className="clay-soft flex items-center gap-1.5 hover:bg-white text-[#26354D] px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>چاپ / ذخیره PDF</span>
+            <span>چاپ / PDF</span>
           </button>
         </div>
       </div>
@@ -139,15 +148,15 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
 
       {/* Student Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border-2 border-slate-200/80 rounded-2xl p-4 space-y-1 shadow-xs">
+        <div className="clay-soft p-4 space-y-1">
           <span className="text-xs text-slate-500 font-bold block">مجموع ستاره‌های افتخار</span>
           <div className="flex items-center gap-1.5 text-amber-500">
-            <span className="text-2xl font-black">{profile.stars}</span>
+            <span className="text-2xl font-extrabold tabular-nums">{profile.stars}</span>
             <Star className="w-5 h-5 fill-amber-400" />
           </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-200/80 rounded-2xl p-4 space-y-1 shadow-xs">
+        <div className="clay-soft p-4 space-y-1">
           <span className="text-xs text-slate-500 font-bold block">مسائل حل شده</span>
           <div className="flex items-center gap-1.5 text-blue-600">
             <span className="text-2xl font-black">{profile.solvedCount}</span>
@@ -155,29 +164,29 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
           </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-200/80 rounded-2xl p-4 space-y-1 shadow-xs">
+        <div className="clay-soft p-4 space-y-1">
           <span className="text-xs text-slate-500 font-bold block">استمرار یادگیری روزانه</span>
           <div className="flex items-center gap-1.5 text-orange-500">
-            <span className="text-2xl font-black">{profile.streakDays}</span>
+            <span className="text-2xl font-extrabold tabular-nums">{profile.streakDays}</span>
             <Flame className="w-5 h-5 fill-orange-400" />
           </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-200/80 rounded-2xl p-4 space-y-1 shadow-xs">
+        <div className="clay-soft p-4 space-y-1">
           <span className="text-xs text-slate-500 font-bold block">شاخص تسلط کل</span>
           <div className="flex items-center gap-1.5 text-emerald-600">
-            <span className="text-2xl font-black">{totalMastery}٪</span>
+            <span className="text-2xl font-extrabold tabular-nums">{totalMastery}٪</span>
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Pedagogical Insights Box */}
-      <div className="bg-gradient-to-r from-[#6C5CE7]/10 to-indigo-50 border-2 border-[#6C5CE7]/30 rounded-3xl p-6 space-y-4">
+      <div className="clay-card bg-gradient-to-br from-[#FFFDF7] to-[#FEF3C7]/45 p-6 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#6C5CE7]" />
-            تحلیل آموزشی آموزگار هوشمند
+          <h3 className="text-lg font-extrabold text-[#26354D] flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-amber-600" />
+            تحلیل هوشمند و توصیه‌های تربیتی برای والدین
           </h3>
           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${overallAssessment.color}`}>
             وضعیت کلی: {overallAssessment.text}
@@ -186,29 +195,29 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
           {/* Strengths */}
-          <div className="bg-white rounded-2xl p-4 border border-emerald-200 space-y-2">
+          <div className="clay-soft p-4 space-y-2">
             <span className="font-bold text-emerald-700 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               نقاط قوت و تسلط بالا:
             </span>
             {strongChapters.length > 0 ? (
               <p className="text-slate-700 leading-relaxed font-medium">
-                دانش‌آموز در مباحث <strong className="text-emerald-800">{strongChapters.join('، ')}</strong> درک مفهومی بسیار خوبی از خود نشان داده است.
+                دانش‌آموز در مباحث <strong className="text-emerald-800">{strongChapters.join('، ')}</strong> درک مفهومی بسیار خوبی از خود نشان داده است. این نقاط قوت مایه دلگرمی است!
               </p>
             ) : (
-              <p className="text-slate-500">با انجام آزمون‌های بیشتر، مباحث تسلط شناسایی و ثبت خواهد شد.</p>
+              <p className="text-slate-500">با انجام آزمون‌های فصول، مباحث تسلط شناسایی و ثبت خواهد شد.</p>
             )}
           </div>
 
           {/* Weaknesses / Review Recommendations */}
-          <div className="bg-white rounded-2xl p-4 border border-amber-200 space-y-2">
+          <div className="clay-soft p-4 space-y-2">
             <span className="font-bold text-amber-700 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               پیشنهاد مرور و تقویت:
             </span>
             {weakChapters.length > 0 ? (
               <p className="text-slate-700 leading-relaxed font-medium">
-                توصیه می‌شود در مباحث <strong className="text-amber-800">{weakChapters.join('، ')}</strong> تمرینات درس‌نامه و دفترچه اشتباهات مجدداً مرور شود.
+                توصیه می‌شود در مباحث <strong className="text-amber-800">{weakChapters.join('، ')}</strong> تمرینات درس‌نامه و دفترچه اشتباهات با آرامش در منزل مرور شود.
               </p>
             ) : (
               <p className="text-slate-700">تمامی مباحث فعال در حد تعادل و رضایت‌بخش هستند. تشویق به استمرار روزانه!</p>
@@ -217,10 +226,72 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
         </div>
       </div>
 
+      {/* Practical Action Plan for Parents (New Feature) */}
+      <div className="clay-card p-6 space-y-4">
+        <h3 className="text-lg font-extrabold text-[#26354D] flex items-center gap-2">
+          <GraduationCap className="w-5 h-5 text-amber-600" />
+          برنامه عملی پیشنهادی برای والدین در منزل (این هفته)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs sm:text-sm">
+          <div className="clay-inset rounded-2xl p-4 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-[#26354D]">
+              <span className="w-6 h-6 rounded-full bg-[#26354D] text-[#FFFDF7] flex items-center justify-center text-xs">۱</span>
+              <span>۱۰ دقیقه تمرین روزانه</span>
+            </div>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              هر روز یک سوال چالش‌برانگیز با کمک «استاد دانا» حل کنید تا استمرار یادگیری حفظ شود.
+            </p>
+          </div>
+
+          <div className="clay-inset rounded-2xl p-4 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-[#26354D]">
+              <span className="w-6 h-6 rounded-full bg-[#26354D] text-[#FFFDF7] flex items-center justify-center text-xs">۲</span>
+              <span>استفاده از ابزار ملموس</span>
+            </div>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              برای درک بهتر کسرها و ضرب‌ها، از وسایل خانه (پیتزا، شکلات، تیله) استفاده کنید.
+            </p>
+          </div>
+
+          <div className="clay-inset rounded-2xl p-4 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-[#26354D]">
+              <span className="w-6 h-6 rounded-full bg-[#26354D] text-[#FFFDF7] flex items-center justify-center text-xs">۳</span>
+              <span>تشویق و تقویت مثبت</span>
+            </div>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              به جای سرزنش اشتباهات، از «دفترچه اشتباهات» برای یادگیری از خطاهای ریاضی استفاده کنید.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Unlocked Badges Showcase for Parents */}
+      <div className="clay-card p-6 space-y-4">
+        <h3 className="text-lg font-extrabold text-[#26354D] flex items-center gap-2">
+          <Award className="w-5 h-5 text-amber-500" />
+          مدال‌ها و دستاوردهای کسب‌شده توسط دانش‌آموز ({unlockedBadgesList.length} مدال)
+        </h3>
+        {unlockedBadgesList.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {unlockedBadgesList.map(b => (
+              <div key={b.id} className="clay-soft flex items-center gap-3 p-3 bg-amber-50/70 rounded-2xl">
+                <span className="text-3xl shrink-0">{b.icon}</span>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs text-amber-950 truncate">{b.title}</h4>
+                  <p className="text-[11px] text-amber-800 truncate">{b.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 font-medium">هنوز مدالی باز نشده است. با حل تمرین‌های بیشتر، اولین مدال‌ها را کسب کنید! 🌟</p>
+        )}
+      </div>
+
       {/* Chapters Mastery Progress List */}
-      <div className="bg-white rounded-[2rem] border-2 border-slate-200/80 p-6 space-y-5 shadow-xs">
-        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-indigo-600" />
+      <div className="clay-card p-6 space-y-5">
+        <h3 className="text-lg font-extrabold text-[#26354D] flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-amber-600" />
           میزان تسلط تفکیکی بر فصول ۸ گانه ریاضی سوم
         </h3>
 

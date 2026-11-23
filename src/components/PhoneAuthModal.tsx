@@ -209,23 +209,23 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
   // If already logged in, show User Info & Logout View
   if (isLoggedIn && currentPhoneNumber) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl box-border">
-        <div className="bg-white w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-8 shadow-2xl border-4 border-amber-200 relative text-center box-border">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#26354D]/55 backdrop-blur-xs animate-fade-in dir-rtl box-border">
+        <div className="clay-card w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-8 shadow-2xl relative text-center box-border">
           <button
             onClick={() => {
               playSound('click', soundEnabled);
               onClose();
             }}
-            className="absolute top-4 left-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition-all cursor-pointer"
+            className="absolute top-4 left-4 w-9 h-9 rounded-full clay-soft hover:bg-white flex items-center justify-center text-slate-600 font-bold transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="w-20 h-20 bg-emerald-100 border-4 border-emerald-300 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600 shadow-sm">
+          <div className="w-20 h-20 bg-emerald-100 border border-emerald-200 rounded-3xl flex items-center justify-center mx-auto mb-4 text-emerald-600 shadow-sm">
             <ShieldCheck className="w-10 h-10" />
           </div>
 
-          <h3 className="text-xl font-black text-slate-800 mb-2">ورود فعال با شماره موبایل</h3>
+          <h3 className="text-xl font-extrabold text-[#26354D] mb-2">ورود فعال با شماره موبایل</h3>
           <p className="text-sm font-semibold text-slate-500 mb-6">
             شما با شماره <span className="font-bold text-emerald-700 dir-ltr inline-block bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">{currentPhoneNumber}</span> به سیستم متصل هستید.
           </p>
@@ -233,7 +233,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
           <div className="space-y-3">
             <button
               onClick={onClose}
-              className="w-full py-3 bg-[#6C5CE7] hover:bg-[#5A4AD1] text-white font-bold rounded-2xl shadow-[0_4px_0_0_#4834D4] transition-all cursor-pointer text-sm"
+              className="clay-btn-primary w-full py-3.5 font-bold rounded-2xl cursor-pointer text-sm"
             >
               ادامه با همین حساب
             </button>
@@ -245,7 +245,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
                   onLogout();
                   onClose();
                 }}
-                className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-2xl border-2 border-rose-200 transition-all cursor-pointer text-sm"
+                className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-2xl border border-rose-200 transition-all cursor-pointer text-sm"
               >
                 خروج از حساب کاربری
               </button>
@@ -257,25 +257,25 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in dir-rtl box-border">
-      <div className="bg-white w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-3xl p-4 sm:p-7 shadow-2xl border-4 border-[#FFEAA7] relative box-border">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#26354D]/55 backdrop-blur-xs animate-fade-in dir-rtl box-border">
+      <div className="clay-card w-full max-w-full sm:max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-7 shadow-2xl relative box-border">
         {/* Close button */}
         <button
           onClick={() => {
             playSound('click', soundEnabled);
             onClose();
           }}
-          className="absolute top-4 left-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition-all cursor-pointer"
+          className="absolute top-4 left-4 w-9 h-9 rounded-full clay-soft hover:bg-white flex items-center justify-center text-slate-600 font-bold transition-all cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-[#FFEAA7] border-4 border-[#FDCB6E] rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs text-3xl">
+          <div className="w-16 h-16 clay-btn-warm rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
             📱
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-[#2D3436]">ورود با شماره موبایل</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#26354D]">ورود با شماره موبایل</h2>
           <p className="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
             ذخیره پیشرفت و کارنامه در حساب شخصی دانش‌آموز
           </p>
@@ -318,7 +318,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-[#6C5CE7] hover:bg-[#5A4AD1] active:translate-y-0.5 text-white font-bold rounded-2xl shadow-[0_4px_0_0_#4834D4] transition-all cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50"
+              className="clay-btn-primary w-full py-3.5 font-bold rounded-2xl cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -406,7 +406,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
             <button
               type="submit"
               disabled={loading || otpDigits.join('').length < 4}
-              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:translate-y-0.5 text-white font-bold rounded-2xl shadow-[0_4px_0_0_#059669] transition-all cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50"
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-[0_10px_22px_-8px_rgba(16,185,129,0.5)] transition-all cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50"
             >
               {loading ? (
                 <>

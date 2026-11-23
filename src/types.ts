@@ -203,3 +203,22 @@ export interface Badge {
   requiredLevel?: number;
 }
 
+export type IssueType = 'wrong_calculation' | 'wrong_method' | 'irrelevant' | 'inappropriate';
+
+export interface ReportAnswerRequest {
+  sessionId: string;
+  messageId: string;
+  question: string;
+  aiResponse: string;
+  issueType: IssueType;
+  explanation?: string;
+  userId: string;
+  timestamp: number;
+}
+
+export interface ReportItem extends ReportAnswerRequest {
+  id: string;
+  status: 'pending' | 'reviewed';
+  reviewedAt?: string;
+}
+
