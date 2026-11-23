@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build & Publish GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build production bundle
+        run: bun run build
+
+      - name: Resolve version & package release archive
+        id: package
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9A-Za-z._-]+$'; then
+            echo "Invalid release tag: '$TAG'. Expected format like v1.0.0" >&2
+            exit 1
+          fi
+
+          ARCHIVE_NAME="ostad-dana-${TAG}.tar.gz"
+          tar -czf "$ARCHIVE_NAME" dist package.json .env.example metadata.json
+
+          {
+            echo "tag=$TAG"
+            echo "archive=$ARCHIVE_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.package.outputs.tag }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          FLAGS=(--title "$TAG" --generate-notes)
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            FLAGS+=(--target "$TARGET_SHA")
+            if [ "$INPUT_PRERELEASE" = "true" ]; then
+              FLAGS+=(--prerelease)
+            fi
+          elif printf '%s' "$TAG" | grep -Eq -- '-(alpha|beta|rc)'; then
+            FLAGS+=(--prerelease)
+          fi
+
+          gh release create "$TAG" "$ARCHIVE" "${FLAGS[@]}"
