@@ -3,6 +3,7 @@ import { Trophy, Medal, Star, Flame, Calendar, RefreshCw, Eye, Sparkles, Shield,
 import { LeaderboardUser, StudentProfile, TimeFrame } from '../types';
 import { PublicReportCardModal } from './PublicReportCardModal';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 
 interface LeaderboardProps {
   currentProfile: StudentProfile;
@@ -30,7 +31,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
   const fetchLeaderboard = async (tf: TimeFrame) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/leaderboard?timeframe=${tf}`);
+      const res = await fetch(apiUrl(`/api/leaderboard?timeframe=${tf}`));
       const data = await res.json();
       if (res.ok && data.users) {
         setUsers(data.users);
@@ -53,7 +54,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentProfile, soundE
     try {
       const userId = currentProfile.phoneNumber || `user_${currentProfile.name.replace(/\s+/g, '_')}`;
 
-      const res = await fetch('/api/leaderboard/sync', {
+      const res = await fetch(apiUrl('/api/leaderboard/sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

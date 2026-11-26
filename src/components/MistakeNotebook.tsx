@@ -3,6 +3,7 @@ import { MistakeRecord, ChapterId } from '../types';
 import { CHAPTERS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
+import { apiUrl } from '../utils/apiConfig';
 import { 
   BookMarked, 
   CheckCircle2, 
@@ -117,7 +118,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
   // Sync from server API if user is logged in (merge without overwriting newer local mistakes)
   useEffect(() => {
     if (!userId || userId === 'default_user' || userId === 'guest_student') return;
-    fetch(`/api/user/mistakes/${encodeURIComponent(userId)}`)
+    fetch(apiUrl(`/api/user/mistakes/${encodeURIComponent(userId)}`))
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!data || !Array.isArray(data.mistakes) || data.mistakes.length === 0) return;
@@ -206,7 +207,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
       setMistakes(updated);
 
       // Inform server
-      fetch('/api/user/mistakes/resolve', {
+      fetch(apiUrl('/api/user/mistakes/resolve'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, mistakeId: m.id })

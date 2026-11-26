@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 import { 
   Camera, 
   Upload, 
@@ -120,7 +121,7 @@ export const ImageSolver: React.FC<ImageSolverProps> = ({
       let apiErrorMessage = '';
 
       try {
-        const res = await fetch('/api/tutor/solve-image', {
+        const res = await fetch(apiUrl('/api/tutor/solve-image'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

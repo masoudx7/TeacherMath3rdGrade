@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Lightbulb, Copy, Check, Quote } from 'lucide-react';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 
 interface AIDailyTipProps {
   soundEnabled: boolean;
@@ -53,7 +54,7 @@ export const AIDailyTip: React.FC<AIDailyTipProps> = ({ soundEnabled }) => {
 
     setLoading(true);
     try {
-      const url = force ? '/api/tutor/daily-tip?refresh=true' : '/api/tutor/daily-tip';
+      const url = apiUrl(force ? '/api/tutor/daily-tip?refresh=true' : '/api/tutor/daily-tip');
       const res = await fetch(url, { method: 'GET' });
       if (res.ok) {
         const data = await res.json();

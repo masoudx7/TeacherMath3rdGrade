@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Flag, X, AlertCircle, CheckCircle2, Send, ShieldAlert } from 'lucide-react';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 
 export interface ReportQuestionModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const ReportQuestionModal: React.FC<ReportQuestionModalProps> = ({
       : selectedReason;
 
     try {
-      const res = await fetch(`/api/questions/${encodeURIComponent(questionId)}/flag`, {
+      const res = await fetch(apiUrl(`/api/questions/${encodeURIComponent(questionId)}/flag`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: fullReason }),

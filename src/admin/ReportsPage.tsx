@@ -17,6 +17,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { ReportItem, IssueType } from '../types';
+import { apiUrl } from '../utils/apiConfig';
 
 interface ReportsPageProps {
   onClose?: () => void;
@@ -54,7 +55,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onClose }) => {
     setLoading(true);
     setAuthError(null);
     try {
-      const res = await fetch('/api/admin/reports', {
+      const res = await fetch(apiUrl('/api/admin/reports'), {
         headers: {
           'x-admin-secret': secret,
         },
@@ -98,7 +99,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onClose }) => {
 
   const handleAction = async (reportKey: string, action: 'mark_reviewed' | 'delete') => {
     try {
-      const res = await fetch('/api/admin/reports/action', {
+      const res = await fetch(apiUrl('/api/admin/reports/action'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

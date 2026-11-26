@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Warm Soft-Neomorphic Sticky Header */}
-      <header className="sticky top-0 z-40 bg-[#FFFDF8]/92 backdrop-blur-md border-b border-amber-200/55 shadow-[0_8px_28px_-14px_rgba(120,82,40,0.16)] w-full">
+      <header className="sticky top-0 z-40 bg-[#FFFDF8]/92 backdrop-blur-md border-b border-amber-200/55 shadow-[0_8px_28px_-14px_rgba(120,82,40,0.16)] w-full pt-[env(safe-area-inset-top)]">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           {/* Brand Zone: Clickable Ostad Dana Emblem */}
           <button
@@ -233,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       {/* Soft Clay Mobile Bottom Navigation Dock */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#FFFDF9]/95 backdrop-blur-lg border-t border-amber-200/60 rounded-t-3xl shadow-[0_-10px_28px_-10px_rgba(120,82,40,0.16)] py-1.5 px-1.5 sm:hidden flex justify-around items-center">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#FFFDF9]/95 backdrop-blur-lg border-t border-amber-200/60 rounded-t-3xl shadow-[0_-10px_28px_-10px_rgba(120,82,40,0.16)] pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-1.5 sm:hidden flex justify-around items-center overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

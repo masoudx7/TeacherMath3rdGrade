@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Flag, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { IssueType, ReportAnswerRequest } from '../types';
+import { apiUrl } from '../utils/apiConfig';
 
 interface ReportButtonProps {
   sessionId?: string;
@@ -113,7 +114,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
     };
 
     try {
-      const res = await fetch('/api/report-answer', {
+      const res = await fetch(apiUrl('/api/report-answer'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

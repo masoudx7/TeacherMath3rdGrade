@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Phone, Lock, ArrowRight, CheckCircle2, ShieldCheck, Smartphone, Sparkles, RefreshCw, X, User } from 'lucide-react';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 
 interface PhoneAuthModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
     playSound('click', soundEnabled);
 
     try {
-      const res = await fetch('/api/auth/send-otp', {
+      const res = await fetch(apiUrl('/api/auth/send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: cleanPhone }),
@@ -180,7 +181,7 @@ export const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({
     playSound('click', soundEnabled);
 
     try {
-      const res = await fetch('/api/auth/verify-otp', {
+      const res = await fetch(apiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

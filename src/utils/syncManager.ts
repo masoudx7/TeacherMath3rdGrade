@@ -4,13 +4,14 @@
  */
 
 import { StudentProfile } from '../types';
+import { apiUrl } from './apiConfig';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v3';
 const TOKEN_KEY = 'math_tutor_auth_token';
 
 export async function fetchServerProfile(phoneNumber: string): Promise<StudentProfile | null> {
   try {
-    const res = await fetch(`/api/user/profile?phone=${encodeURIComponent(phoneNumber)}`);
+    const res = await fetch(apiUrl(`/api/user/profile?phone=${encodeURIComponent(phoneNumber)}`));
     if (!res.ok) return null;
     const data = await res.json();
     return data.profile || null;
@@ -26,7 +27,7 @@ export async function syncProgressToServer(profile: StudentProfile): Promise<Stu
   }
 
   try {
-    const res = await fetch('/api/user/sync', {
+    const res = await fetch(apiUrl('/api/user/sync'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -4,6 +4,7 @@ import { ChatMessage } from '../types';
 import { playSound } from '../utils/sound';
 import { generateFallbackTutorResponse } from '../utils/tutorFallback';
 import { getAllQuestions, saveQuestionLocally, syncQuestionsToCloud } from '../utils/questionManager';
+import { apiUrl } from '../utils/apiConfig';
 import { 
   Send, 
   User, 
@@ -258,7 +259,7 @@ export const AITutorChat: React.FC<AITutorChatProps> = ({
       let replyText = '';
 
       try {
-        const res = await fetch('/api/tutor/chat', {
+        const res = await fetch(apiUrl('/api/tutor/chat'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 

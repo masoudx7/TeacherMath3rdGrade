@@ -4,6 +4,7 @@ import { PRICING_PLANS, DISCOUNT_COUPONS } from '../data/pricingPlans';
 import { formatToman, activatePlan } from '../utils/subscriptionManager';
 import { getPaymentProvider } from '../services/payment/paymentProviders';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 import { 
   Crown, 
   CheckCircle2, 
@@ -64,7 +65,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setCouponError(null);
 
     try {
-      const res = await fetch('/api/subscription/validate-coupon', {
+      const res = await fetch(apiUrl('/api/subscription/validate-coupon'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, planId: selectedPlanId }),
@@ -120,7 +121,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       let updatedProfile = activatePlan(profile, selectedPlanId);
 
       try {
-        const res = await fetch('/api/subscription/purchase', {
+        const res = await fetch(apiUrl('/api/subscription/purchase'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -155,7 +156,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setIsProcessing(true);
     const userId = profile.phoneNumber || 'guest_student';
     try {
-      const res = await fetch('/api/subscription/activate-test', {
+      const res = await fetch(apiUrl('/api/subscription/activate-test'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

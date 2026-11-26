@@ -23,6 +23,7 @@ import { evaluateTrophies } from './utils/trophyEngine';
 import { fetchServerProfile, syncProgressToServer } from './utils/syncManager';
 import { syncAndGrowOfflineQuestionBank } from './hooks/useQuestionBank';
 import { getLocalDateKey } from './utils/dailyExercises';
+import { initCapacitorBridge } from './utils/capacitorBridge';
 
 const STORAGE_KEY = 'math_tutor_3rd_profile_v4';
 const ACCOUNTS_STORAGE_KEY = 'math_tutor_accounts_map_v1';
@@ -156,6 +157,64 @@ export default function App() {
       syncAndGrowOfflineQuestionBank().catch(() => {});
     }, 2500);
     return () => clearTimeout(timer);
+  }, []);
+
+  const backStateRef = React.useRef({
+    showSplash,
+    activeTab,
+    isProfileOpen,
+    isPhoneAuthOpen,
+    isSubscriptionOpen,
+    isReviewPrivacyOpen,
+    isParentalConsentOpen,
+    hasCelebration: celebrationQueue.length > 0,
+  });
+
+  backStateRef.current = {
+    showSplash,
+    activeTab,
+    isProfileOpen,
+    isPhoneAuthOpen,
+    isSubscriptionOpen,
+    isReviewPrivacyOpen,
+    isParentalConsentOpen,
+    hasCelebration: celebrationQueue.length > 0,
+  };
+
+  useEffect(() => {
+    return initCapacitorBridge({
+      handleBackPress: () => {
+        const s = backStateRef.current;
+        if (s.hasCelebration) {
+          setCelebrationQueue((prev) => prev.slice(1));
+          return true;
+        }
+        if (s.isProfileOpen) {
+          setIsProfileOpen(false);
+          return true;
+        }
+        if (s.isPhoneAuthOpen) {
+          setIsPhoneAuthOpen(false);
+          return true;
+        }
+        if (s.isSubscriptionOpen) {
+          setIsSubscriptionOpen(false);
+          return true;
+        }
+        if (s.isReviewPrivacyOpen) {
+          setIsReviewPrivacyOpen(false);
+          return true;
+        }
+        if (s.isParentalConsentOpen) {
+          return true;
+        }
+        if (!s.showSplash && s.activeTab !== 'tutor') {
+          setActiveTab('tutor');
+          return true;
+        }
+        return false;
+      },
+    });
   }, []);
 
   // ثبت و ذخیره تاییدیه رضایت والدین و همگام‌سازی با سرور در صورت لاگین

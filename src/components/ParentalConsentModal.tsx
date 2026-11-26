@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { PRIVACY_POLICY_DATA } from '../data/privacyPolicy';
 import { playSound } from '../utils/sound';
+import { apiUrl } from '../utils/apiConfig';
 
 export interface ParentalConsentModalProps {
   isOpen: boolean;
@@ -117,7 +118,7 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
     setIsWiping(true);
     try {
       if (phoneNumber) {
-        await fetch('/api/user/data', {
+        await fetch(apiUrl('/api/user/data'), {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phoneNumber }),

@@ -12,6 +12,7 @@ import {
   getOfflineBankStats,
   OFFLINE_BANK_MAX_QUESTIONS,
 } from '../utils/offlineQuestionBank';
+import { apiUrl } from '../utils/apiConfig';
 
 export interface UseQuestionBankOptions {
   chapterId: ChapterId;
@@ -31,7 +32,7 @@ export async function syncAndGrowOfflineQuestionBank(): Promise<void> {
 
   try {
     // ۱. ابتدا تمام سوالات ذخیره‌شده در دیتابیس سرور را در IndexedDB کلاینت همگام می‌کنیم
-    const exportRes = await fetch('/api/questions/export-offline');
+    const exportRes = await fetch(apiUrl('/api/questions/export-offline'));
     if (exportRes.ok) {
       const exportData = await exportRes.json();
       if (Array.isArray(exportData.questions) && exportData.questions.length > 0) {
@@ -48,7 +49,7 @@ export async function syncAndGrowOfflineQuestionBank(): Promise<void> {
     }
     sessionStorage.setItem(STARTUP_GROW_SESSION_KEY, String(Date.now()));
 
-    const growRes = await fetch('/api/questions/auto-grow', {
+    const growRes = await fetch(apiUrl('/api/questions/auto-grow'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -111,7 +112,7 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
 
     try {
       if (typeof navigator === 'undefined' || navigator.onLine !== false) {
-        const url = `/api/questions?chapterId=${chapterId}${difficulty ? `&difficulty=${difficulty}` : ''}`;
+        const url = apiUrl(`/api/questions?chapterId=${chapterId}${difficulty ? `&difficulty=${difficulty}` : ''}`);
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -139,7 +140,7 @@ export function useQuestionBank(options: UseQuestionBankOptions) {
       currentPool: QuizQuestion[]
     ): Promise<QuizQuestion[]> => {
       try {
-        const res = await fetch('/api/questions/generate', {
+        const res = await fetch(apiUrl('/api/questions/generate'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

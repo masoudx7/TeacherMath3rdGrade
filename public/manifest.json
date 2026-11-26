@@ -1,6 +1,6 @@
 {
-  "short_name": "ریاضی سوم",
-  "name": "آموزگار هوشمند من - ریاضی سوم دبستان",
+  "short_name": "استاد دانا",
+  "name": "معلم ریاضی سوم ابتدایی | استاد دانا",
   "description": "برنامه جامع آموزش، رفع اشکال هوشمند و بازی‌های ریاضی پایه سوم دبستان به همراه آموزگار و جدول قهرمانان",
   "icons": [
     {
@@ -17,8 +17,8 @@
     }
   ],
   "start_url": "/",
-  "background_color": "#FFF9E5",
-  "theme_color": "#6C5CE7",
+  "background_color": "#FBF6EC",
+  "theme_color": "#FFFDF8",
   "display": "standalone",
   "orientation": "portrait",
   "dir": "rtl",
