@@ -143,6 +143,7 @@ export interface StudentProfile {
   solvedCount: number;
   scannedImagesCount: number;
   unlockedBadges: string[];
+  featuredBadgeId?: string;
   chapterMastery: Record<ChapterId, number>; // 0 to 100 percentage
   parentalConsentAccepted?: boolean;
   parentalConsentDate?: string;

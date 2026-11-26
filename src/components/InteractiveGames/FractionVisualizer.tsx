@@ -13,6 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { saveMistake } from '../../utils/mistakeStore';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 
 interface FractionVisualizerProps {
   soundEnabled: boolean;
@@ -122,6 +123,13 @@ export const FractionVisualizer: React.FC<FractionVisualizerProps> = ({
       });
 
       // ثبت خطا در دفترچه یادداشت اشتباهات
+      addMistakeInstant(
+        'fractions',
+        `کسر مساوی: کسر ${targetTask.baseNum.toLocaleString('fa-IR')}/${targetTask.baseDen.toLocaleString('fa-IR')} با چه کسری با مخرج ${targetTask.targetDen.toLocaleString('fa-IR')} مساوی است؟`,
+        `${num2.toLocaleString('fa-IR')}/${den2.toLocaleString('fa-IR')}`,
+        `${expectedNum2.toLocaleString('fa-IR')}/${targetTask.targetDen.toLocaleString('fa-IR')}`,
+        `برای ساخت کسر مساوی با مخرج ${targetTask.targetDen.toLocaleString('fa-IR')}، صورت و مخرج کسر ${targetTask.baseNum.toLocaleString('fa-IR')}/${targetTask.baseDen.toLocaleString('fa-IR')} را هم‌زمان ضرب می‌کنیم تا به ${expectedNum2.toLocaleString('fa-IR')}/${targetTask.targetDen.toLocaleString('fa-IR')} برسیم.`
+      );
       saveMistake('current_student', {
         userId: 'current_student',
         question: `کسر مساوی: کسر ${targetTask.baseNum}/${targetTask.baseDen} با چه کسری با مخرج ${targetTask.targetDen} مساوی است؟`,

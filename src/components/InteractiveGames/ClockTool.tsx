@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import confetti from 'canvas-confetti';
 import { Clock, CheckCircle2, RotateCcw } from 'lucide-react';
 
@@ -56,7 +57,16 @@ export const ClockTool: React.FC<ClockToolProps> = ({
       }, 1500);
     } else {
       playSound('wrong', soundEnabled);
+      const targetStr = `${targetHour}:${targetMin === 0 ? '00' : targetMin}`;
+      const chosenStr = `${hours}:${minutes === 0 ? '00' : minutes}`;
       setMessage(`دقت کن! زمان هدف ${targetHour}:${targetMin === 0 ? '۰۰' : targetMin} است اما تو ${hours}:${minutes === 0 ? '۰۰' : minutes} ساختی.`);
+      addMistakeInstant(
+        'patterns',
+        `تنظیم ساعت عقربه‌ای روی زمان ${targetHour}:${targetMin === 0 ? '۰۰' : targetMin}`,
+        chosenStr,
+        targetStr,
+        `عقربه کوچک (ساعت‌شمار) باید روی ${targetHour} و عقربه بزرگ (دقیقه‌شمار) باید روی دقیقه ${targetMin} (${targetMin / 5 === 0 ? 12 : targetMin / 5}) قرار بگیرد.`
+      );
     }
   };
 

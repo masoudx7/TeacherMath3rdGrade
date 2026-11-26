@@ -11,7 +11,13 @@ export const addMistakeInstant = (
   if (!question) return;
   try {
     const saved = localStorage.getItem(MISTAKES_STORAGE_KEY);
-    let list: MistakeRecord[] = saved ? JSON.parse(saved) : [];
+    let list: MistakeRecord[] = [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        list = parsed;
+      }
+    }
 
     const existingIdx = list.findIndex(m => m.question === question);
     if (existingIdx >= 0) {
@@ -19,13 +25,14 @@ export const addMistakeInstant = (
         ...list[existingIdx],
         wrongAnswer,
         correctAnswer,
-        attempts: list[existingIdx].attempts + 1,
+        explanation: explanation || list[existingIdx].explanation,
+        attempts: (list[existingIdx].attempts || 1) + 1,
         timestamp: Date.now(),
         resolved: false
       };
     } else {
       const newRecord: MistakeRecord = {
-        id: 'mstk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        id: 'mstk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         chapterId: (chapterId as ChapterId) || 'patterns',
         question,
         wrongAnswer,
@@ -38,7 +45,8 @@ export const addMistakeInstant = (
       };
       list.unshift(newRecord);
     }
-    localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(list));
+
+    localStorage.setItem(MISTAKES_STORAGE_KEY, JSON.stringify(list.slice(0, 100)));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('mistake-added'));
     }

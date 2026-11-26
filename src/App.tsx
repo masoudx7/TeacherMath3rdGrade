@@ -76,12 +76,37 @@ const saveAccountToStore = (userProfile: StudentProfile) => {
   }
 };
 
-// Helper to check badge unlocks based on current stats
-const getUnlockedBadges = (prof: StudentProfile): string[] => {
-  const existingUnlocked = prof.unlockedBadges || [];
-  const newlyUnlocked = evaluateTrophies(prof);
-  const badgeSet = new Set([...existingUnlocked, ...newlyUnlocked]);
-  return Array.from(badgeSet);
+// Helper to evaluate honor badges, award their bonus stars cleanly, and return finalized profile
+const finalizeProfileWithBadges = (prof: StudentProfile): StudentProfile => {
+  let working: StudentProfile = {
+    ...prof,
+    unlockedBadges: Array.isArray(prof.unlockedBadges) ? [...prof.unlockedBadges] : [],
+  };
+
+  // Up to 2 passes so bonus stars from a newly unlocked badge can also unlock star/level badges
+  for (let pass = 0; pass < 2; pass++) {
+    const newlyUnlockedIds = evaluateTrophies(working);
+    if (newlyUnlockedIds.length === 0) break;
+
+    const bonusStars = newlyUnlockedIds.reduce((sum, id) => {
+      const badge = BADGES.find((b) => b.id === id);
+      return sum + (badge?.bonusStars || 2);
+    }, 0);
+
+    const nextStars = (working.stars || 0) + bonusStars;
+    const nextXp = (working.xp || 0) + bonusStars * 10;
+    const nextLevel = Math.floor(nextXp / 100) + 1;
+
+    working = {
+      ...working,
+      stars: nextStars,
+      xp: nextXp,
+      level: Math.max(working.level || 1, nextLevel),
+      unlockedBadges: Array.from(new Set([...working.unlockedBadges, ...newlyUnlockedIds])),
+    };
+  }
+
+  return working;
 };
 
 export default function App() {
@@ -92,7 +117,7 @@ export default function App() {
   const [isPhoneAuthOpen, setIsPhoneAuthOpen] = useState<boolean>(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
   const [selectedChapterForGames, setSelectedChapterForGames] = useState<ChapterId>('patterns');
-  const [celebrationData, setCelebrationData] = useState<CelebrationData | null>(null);
+  const [celebrationQueue, setCelebrationQueue] = useState<CelebrationData[]>([]);
   const [tutorExternalPrompt, setTutorExternalPrompt] = useState<{ id: string; text: string } | null>(null);
   const tutorChatContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -113,16 +138,17 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         const merged = { ...DEFAULT_PROFILE, ...parsed };
-        merged.unlockedBadges = getUnlockedBadges(merged);
-        return merged;
+        return finalizeProfileWithBadges(merged);
       }
     } catch (e) {
       console.error(e);
     }
-    const initial = { ...DEFAULT_PROFILE };
-    initial.unlockedBadges = getUnlockedBadges(initial);
-    return initial;
+    return finalizeProfileWithBadges({ ...DEFAULT_PROFILE });
   });
+
+  const prevLevelRef = React.useRef<number>(profile.level || 1);
+  const prevBadgesRef = React.useRef<string[]>(profile.unlockedBadges || []);
+  const suppressNextCelebrationRef = React.useRef<boolean>(false);
 
   // همگام‌سازی و رشد خودکار بانک سوالات آفلاین (تا ۵۰۰۰ سوال) در هر بار اجرای اپ
   useEffect(() => {
@@ -181,14 +207,14 @@ export default function App() {
     // ۱. اگر پروفایل از سرور دریافت شده باشد، مستقیماً بازیابی می‌شود
     if (serverProfile) {
       syncConsentFromRemote(serverProfile);
-      const restoredProfile: StudentProfile = {
+      const restoredProfile = finalizeProfileWithBadges({
         ...DEFAULT_PROFILE,
         ...serverProfile,
         phoneNumber,
         isLoggedIn: true,
         name: name && name.trim() ? name.trim() : serverProfile.name || 'دانش‌آموز کوشا',
-      };
-      restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+      });
+      suppressNextCelebrationRef.current = true;
       setProfile(restoredProfile);
       saveAccountToStore(restoredProfile);
       return;
@@ -199,14 +225,14 @@ export default function App() {
       const remote = await fetchServerProfile(phoneNumber);
       if (remote) {
         syncConsentFromRemote(remote);
-        const restoredProfile: StudentProfile = {
+        const restoredProfile = finalizeProfileWithBadges({
           ...DEFAULT_PROFILE,
           ...remote,
           phoneNumber,
           isLoggedIn: true,
           name: name && name.trim() ? name.trim() : remote.name || 'دانش‌آموز کوشا',
-        };
-        restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+        });
+        suppressNextCelebrationRef.current = true;
         setProfile(restoredProfile);
         saveAccountToStore(restoredProfile);
         return;
@@ -220,24 +246,24 @@ export default function App() {
     const existingAccount = accounts[phoneNumber];
 
     if (existingAccount) {
-      const restoredProfile: StudentProfile = {
+      const restoredProfile = finalizeProfileWithBadges({
         ...existingAccount,
         phoneNumber,
         isLoggedIn: true,
         name: name && name.trim() ? name.trim() : existingAccount.name || 'دانش‌آموز کوشا',
-      };
-      restoredProfile.unlockedBadges = getUnlockedBadges(restoredProfile);
+      });
+      suppressNextCelebrationRef.current = true;
       setProfile(restoredProfile);
       saveAccountToStore(restoredProfile);
     } else {
       // ایجاد پروفایل نو
-      const newProfile: StudentProfile = {
+      const newProfile = finalizeProfileWithBadges({
         ...DEFAULT_PROFILE,
         phoneNumber,
         isLoggedIn: true,
         name: name && name.trim() ? name.trim() : 'دانش‌آموز کوشا',
-      };
-      newProfile.unlockedBadges = getUnlockedBadges(newProfile);
+      });
+      suppressNextCelebrationRef.current = true;
       setProfile(newProfile);
       saveAccountToStore(newProfile);
     }
@@ -256,8 +282,9 @@ export default function App() {
       name: 'دانش‌آموز مهمان',
       isLoggedIn: false,
       phoneNumber: '',
+      unlockedBadges: [],
     };
-    resetProfile.unlockedBadges = [];
+    suppressNextCelebrationRef.current = true;
     setProfile(resetProfile);
 
     // 3. Clear session storage
@@ -281,34 +308,52 @@ export default function App() {
     }
   }, [profile]);
 
-  // Helper to trigger celebration modals
-  const triggerBadgeOrLevelCheck = (prev: StudentProfile, updated: StudentProfile) => {
-    if (updated.level > prev.level) {
-      setTimeout(() => {
-        setCelebrationData({
-          type: 'level_up',
-          title: `تبریک! به سطح ${updated.level} رسیدی! 👑`,
-          subtitle: `آفرین! تلاش و تمرین زیادت باعث شد یک گام بزرگ برداری!`,
-          icon: '🏆',
-          starsEarned: 10,
-        });
-      }, 300);
-    } else if (updated.unlockedBadges.length > prev.unlockedBadges.length) {
-      const newlyUnlockedId = updated.unlockedBadges.find(id => !prev.unlockedBadges.includes(id));
-      const badgeObj = BADGES.find(b => b.id === newlyUnlockedId);
-      if (badgeObj) {
-        setTimeout(() => {
-          setCelebrationData({
-            type: 'badge',
-            title: `مدال جدید «${badgeObj.title}» باز شد! 🎖️`,
-            subtitle: badgeObj.description,
-            icon: badgeObj.icon,
-            starsEarned: 5,
-          });
-        }, 300);
-      }
+  // Trigger celebrations cleanly whenever level increases or new honor badges unlock
+  useEffect(() => {
+    const currentBadges = profile.unlockedBadges || [];
+    if (suppressNextCelebrationRef.current) {
+      suppressNextCelebrationRef.current = false;
+      prevLevelRef.current = profile.level || 1;
+      prevBadgesRef.current = currentBadges;
+      return;
     }
-  };
+
+    const queued: CelebrationData[] = [];
+
+    if ((profile.level || 1) > prevLevelRef.current) {
+      queued.push({
+        type: 'level_up',
+        title: `تبریک! به سطح ${profile.level} رسیدی! 👑`,
+        subtitle: 'آفرین! تلاش و تمرین پیوسته‌ات باعث شد یک پله بزرگ بالا بروی!',
+        icon: '🏆',
+        starsEarned: 10,
+      });
+    }
+
+    const newlyUnlockedIds = currentBadges.filter((id) => !prevBadgesRef.current.includes(id));
+    newlyUnlockedIds.forEach((id) => {
+      const badgeObj = BADGES.find((b) => b.id === id);
+      if (badgeObj) {
+        queued.push({
+          type: 'badge',
+          title: `نشان افتخار «${badgeObj.title}» باز شد!`,
+          subtitle: badgeObj.encouragement || badgeObj.description,
+          icon: badgeObj.icon,
+          starsEarned: badgeObj.bonusStars || 3,
+        });
+      }
+    });
+
+    prevLevelRef.current = profile.level || 1;
+    prevBadgesRef.current = currentBadges;
+
+    if (queued.length > 0) {
+      const timer = setTimeout(() => {
+        setCelebrationQueue((prev) => [...prev, ...queued]);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [profile.level, profile.unlockedBadges]);
 
   // Handle adding stars & level progression
   const handleAddStars = (count: number) => {
@@ -317,53 +362,41 @@ export default function App() {
       const newXp = prev.xp + count * 10;
       const newLevel = Math.floor(newXp / 100) + 1;
 
-      const updatedState: StudentProfile = {
+      return finalizeProfileWithBadges({
         ...prev,
         stars: newStars,
         xp: newXp,
-        level: newLevel,
-      };
-
-      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
-      triggerBadgeOrLevelCheck(prev, updatedState);
-      return updatedState;
+        level: Math.max(prev.level || 1, newLevel),
+      });
     });
   };
 
   const handleIncrementSolved = () => {
-    setProfile(prev => {
-      const newCount = prev.solvedCount + 1;
-      const updatedState: StudentProfile = {
+    setProfile(prev =>
+      finalizeProfileWithBadges({
         ...prev,
-        solvedCount: newCount,
-      };
-      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
-      triggerBadgeOrLevelCheck(prev, updatedState);
-      return updatedState;
-    });
+        solvedCount: (prev.solvedCount || 0) + 1,
+      })
+    );
   };
 
   const handleIncrementScanned = () => {
-    setProfile(prev => {
-      const newScanned = prev.scannedImagesCount + 1;
-      const updatedState: StudentProfile = {
+    setProfile(prev =>
+      finalizeProfileWithBadges({
         ...prev,
-        scannedImagesCount: newScanned,
-      };
-      updatedState.unlockedBadges = getUnlockedBadges(updatedState);
-      triggerBadgeOrLevelCheck(prev, updatedState);
-      return updatedState;
-    });
+        scannedImagesCount: (prev.scannedImagesCount || 0) + 1,
+      })
+    );
   };
 
   const handleRecordHistory = (chapterId: ChapterId, score: number, total: number) => {
     setProfile(prev => {
       const newMastery = { ...prev.chapterMastery };
       const currentVal = newMastery[chapterId] || 50;
-      const perfPercent = Math.round((score / total) * 100);
+      const perfPercent = Math.round((score / Math.max(1, total)) * 100);
       newMastery[chapterId] = Math.min(100, Math.round((currentVal + perfPercent) / 2));
 
-      return {
+      return finalizeProfileWithBadges({
         ...prev,
         chapterMastery: newMastery,
         history: [
@@ -375,12 +408,12 @@ export default function App() {
             total,
           }
         ]
-      };
+      });
     });
   };
 
   const handleUpdateProfile = (updated: Partial<StudentProfile>) => {
-    setProfile(prev => ({ ...prev, ...updated }));
+    setProfile(prev => finalizeProfileWithBadges({ ...prev, ...updated }));
   };
 
   const handleEnterOstadDana = () => {
@@ -408,23 +441,24 @@ export default function App() {
 
   const handleDailyHabitCompleted = (newHabitStreak: number) => {
     const todayKey = getLocalDateKey();
-    setProfile((prev) => {
-      const updated: StudentProfile = {
+    setProfile((prev) =>
+      finalizeProfileWithBadges({
         ...prev,
         streakDays: Math.max(prev.streakDays || 1, newHabitStreak),
         lastActiveDate: todayKey,
-      };
-      updated.unlockedBadges = getUnlockedBadges(updated);
-      return updated;
-    });
+      })
+    );
 
-    setCelebrationData({
-      type: 'quiz_perfect',
-      title: 'آفرین! هر ۳ تمرین امروز کامل شد!',
-      subtitle: `عادت مطالعه روزانه تو عالی پیش می‌ره (${newHabitStreak} روز پیوسته). فردا با ۳ تمرین تازه برگرد!`,
-      icon: '🌟',
-      starsEarned: 5,
-    });
+    setCelebrationQueue((prev) => [
+      ...prev,
+      {
+        type: 'quiz_perfect',
+        title: 'آفرین! هر ۳ تمرین امروز کامل شد!',
+        subtitle: `عادت مطالعه روزانه تو عالی پیش می‌ره (${newHabitStreak} روز پیوسته). فردا با ۳ تمرین تازه برگرد!`,
+        icon: '🌟',
+        starsEarned: 5,
+      },
+    ]);
   };
 
   return (
@@ -502,6 +536,8 @@ export default function App() {
           <CurriculumGuide
             soundEnabled={soundEnabled}
             onAddStars={handleAddStars}
+            onIncrementSolved={handleIncrementSolved}
+            onRecordChapterAttempt={handleRecordHistory}
             onSelectChapterForGame={(chapterId) => {
               setSelectedChapterForGames(chapterId as ChapterId);
               setActiveTab('games');
@@ -517,6 +553,15 @@ export default function App() {
           <ProgressDashboard
             profile={profile}
             soundEnabled={soundEnabled}
+            onFeatureBadge={(badgeId) => handleUpdateProfile({ featuredBadgeId: badgeId })}
+            onNavigateToPractice={(chapterId) => {
+              if (chapterId) {
+                setSelectedChapterForGames(chapterId);
+                setActiveTab('games');
+              } else {
+                setActiveTab('tutor');
+              }
+            }}
           />
         )}
 
@@ -622,8 +667,8 @@ export default function App() {
 
       {/* Encouragement Success & Badge Celebration Modal */}
       <SuccessCelebrationModal
-        data={celebrationData}
-        onClose={() => setCelebrationData(null)}
+        data={celebrationQueue[0] || null}
+        onClose={() => setCelebrationQueue((prev) => prev.slice(1))}
         soundEnabled={soundEnabled}
       />
     </div>

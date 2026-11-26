@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const tabs = [
     { id: 'tutor', label: 'معلم دانا', shortLabel: 'گفتگو', icon: Bot, badge: 'هوشمند' },
-    { id: 'progress', label: 'کارنامه و تروفی‌ها', shortLabel: 'کارنامه', icon: BarChart2 },
+    { id: 'progress', label: 'کارنامه و نشان‌ها', shortLabel: 'کارنامه', icon: BarChart2 },
     { id: 'games', label: 'تمرین و آزمون', shortLabel: 'تمرین', icon: Gamepad2 },
     { id: 'mistakes', label: 'دفترچه اشتباهات', shortLabel: 'اشتباهات', icon: BookMarked, badge: 'رفع اشکال' },
     { id: 'curriculum', label: 'فصل‌های کتاب', shortLabel: 'فصل‌ها', icon: BookOpen },

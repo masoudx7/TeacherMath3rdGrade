@@ -269,7 +269,7 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
       <div className="clay-card p-6 space-y-4">
         <h3 className="text-lg font-extrabold text-[#26354D] flex items-center gap-2">
           <Award className="w-5 h-5 text-amber-500" />
-          مدال‌ها و دستاوردهای کسب‌شده توسط دانش‌آموز ({unlockedBadgesList.length} مدال)
+          نشان‌های افتخار و دستاوردهای کسب‌شده توسط دانش‌آموز ({unlockedBadgesList.length} نشان)
         </h3>
         {unlockedBadgesList.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -284,7 +284,7 @@ export const ParentReport: React.FC<ParentReportProps> = ({ profile, soundEnable
             ))}
           </div>
         ) : (
-          <p className="text-xs text-slate-500 font-medium">هنوز مدالی باز نشده است. با حل تمرین‌های بیشتر، اولین مدال‌ها را کسب کنید! 🌟</p>
+          <p className="text-xs text-slate-500 font-medium">هنوز نشان افتخاری باز نشده است. با حل تمرین‌های بیشتر، اولین نشان‌ها را کسب کنید! 🌟</p>
         )}
       </div>
 

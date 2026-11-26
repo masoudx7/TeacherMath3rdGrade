@@ -115,8 +115,8 @@ export const PublicReportCardModal: React.FC<PublicReportCardModalProps> = ({
         {/* Badges Earned */}
         <div>
           <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
-            <Award className="w-4 h-4 text-purple-600" />
-            <span>نشان‌ها و مدال‌های کسب‌شده ({user.unlockedBadges?.length || 0})</span>
+            <Award className="w-4 h-4 text-amber-600" />
+            <span>نشان‌های افتخار کسب‌شده ({user.unlockedBadges?.length || 0})</span>
           </h3>
 
           <div className="grid grid-cols-2 gap-2">

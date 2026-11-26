@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import { Trophy, Flame, CheckCircle2, RefreshCw, Calculator, DollarSign } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -162,6 +163,31 @@ export const RegroupingGame: React.FC<RegroupingGameProps> = ({
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
       setStreak(0);
+      if (mode === 'addition') {
+        addMistakeInstant(
+          'regrouping',
+          `حاصل جمع ${currentAdd.num1.toLocaleString('fa-IR')} + ${currentAdd.num2.toLocaleString('fa-IR')} چند است؟`,
+          ans.toLocaleString('fa-IR'),
+          currentAdd.correct.toLocaleString('fa-IR'),
+          `${currentAdd.hint} (پاسخ درست: ${currentAdd.correct.toLocaleString('fa-IR')})`
+        );
+      } else if (mode === 'subtraction') {
+        addMistakeInstant(
+          'regrouping',
+          `حاصل تفریق ${currentSub.num1.toLocaleString('fa-IR')} - ${currentSub.num2.toLocaleString('fa-IR')} چند است؟`,
+          ans.toLocaleString('fa-IR'),
+          currentSub.correct.toLocaleString('fa-IR'),
+          `${currentSub.hint} (پاسخ درست: ${currentSub.correct.toLocaleString('fa-IR')})`
+        );
+      } else {
+        addMistakeInstant(
+          'regrouping',
+          `مسئله مالی: ${currentProb.text}`,
+          `${ans.toLocaleString('fa-IR')} تومان`,
+          `${currentProb.correct.toLocaleString('fa-IR')} تومان`,
+          currentProb.explanation
+        );
+      }
       setTimeout(() => {
         setFeedback(null);
         setSelectedAns(null);

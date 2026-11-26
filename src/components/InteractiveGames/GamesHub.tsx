@@ -147,63 +147,90 @@ export const GamesHub: React.FC<GamesHubProps> = ({
           <PatternMachineGame
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('patterns', 1, 1);
+            }}
           />
         )}
         {activeGame === 'place_value' && (
           <PlaceValueBuilder
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('place_value', 1, 1);
+            }}
           />
         )}
         {activeGame === 'fraction' && (
           <FractionVisualizer
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('fractions', 1, 1);
+            }}
           />
         )}
         {activeGame === 'multiplication' && (
           <MultiplicationGame
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('multiplication_division', 1, 1);
+            }}
           />
         )}
         {activeGame === 'perimeter' && (
           <AreaPerimeterGrid
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('perimeter_area', 1, 1);
+            }}
           />
         )}
         {activeGame === 'regrouping' && (
           <RegroupingGame
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('regrouping', 1, 1);
+            }}
           />
         )}
         {activeGame === 'statistics' && (
           <StatisticsGame
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('statistics', 1, 1);
+            }}
           />
         )}
         {activeGame === 'advanced_multiplication' && (
           <AdvancedMultiplicationGame
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('advanced_multiplication', 1, 1);
+            }}
           />
         )}
         {activeGame === 'clock' && (
           <ClockTool
             soundEnabled={soundEnabled}
             onAddStars={onAddStars}
-            onIncrementSolved={onIncrementSolved}
+            onIncrementSolved={() => {
+              onIncrementSolved();
+              onRecordHistory('patterns', 1, 1);
+            }}
           />
         )}
         {activeGame === 'ai_quiz' && (

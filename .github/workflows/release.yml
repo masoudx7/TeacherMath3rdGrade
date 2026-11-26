@@ -2,13 +2,16 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v1.0.0)'
-        required: true
+        description: 'Release tag (optional, e.g. v1.0.0)'
+        required: false
         type: string
       prerelease:
         description: 'Mark as a pre-release'
@@ -42,7 +45,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile || bun install
 
       - name: Build production bundle
         run: bun run build
@@ -51,13 +54,17 @@ jobs:
         id: package
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ inputs.tag }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_TAG" ]; then
             TAG="$INPUT_TAG"
-          else
+          elif [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
             TAG="$REF_NAME"
+          else
+            TAG="v$(date -u +%Y.%m.%d)-r${RUN_NUMBER}"
           fi
 
           if ! printf '%s' "$TAG" | grep -Eq '^v[0-9A-Za-z._-]+$'; then
@@ -73,22 +80,29 @@ jobs:
             echo "archive=$ARCHIVE_NAME"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.package.outputs.tag }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
           INPUT_PRERELEASE: ${{ inputs.prerelease }}
           TARGET_SHA: ${{ github.sha }}
         run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ARCHIVE" --clobber
+            exit 0
+          fi
+
           FLAGS=(--title "$TAG" --generate-notes)
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$REF_TYPE" != "tag" ]; then
             FLAGS+=(--target "$TARGET_SHA")
-            if [ "$INPUT_PRERELEASE" = "true" ]; then
-              FLAGS+=(--prerelease)
-            fi
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$INPUT_PRERELEASE" = "true" ]; then
+            FLAGS+=(--prerelease)
           elif printf '%s' "$TAG" | grep -Eq -- '-(alpha|beta|rc)'; then
             FLAGS+=(--prerelease)
           fi

@@ -127,6 +127,7 @@ export const ParentalConsentModal: React.FC<ParentalConsentModalProps> = ({
       localStorage.removeItem('math_tutor_3rd_profile_v3');
       localStorage.removeItem('ostad_dana_chat_history_v2');
       localStorage.removeItem('ostad_mistakes_v1');
+      localStorage.removeItem('math_tutor_user_mistakes_v1');
 
       setWipeSuccess(true);
       playSound('star', soundEnabled);

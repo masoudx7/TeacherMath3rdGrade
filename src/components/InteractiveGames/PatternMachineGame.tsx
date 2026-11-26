@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import { Trophy, Flame, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, Shuffle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -509,6 +510,31 @@ export const PatternMachineGame: React.FC<PatternMachineGameProps> = ({
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
       setStreak(0);
+      if (mode === 'pattern_finder') {
+        addMistakeInstant(
+          'patterns',
+          `الگوی عددی: عدد مجهول (؟) در دنباله [${currentPattern.sequence.join(' ، ')}] کدام است؟`,
+          String(ans),
+          currentPattern.correct,
+          `${currentPattern.stepText} (قانون: ${currentPattern.rule})`
+        );
+      } else if (mode === 'input_output_machine') {
+        addMistakeInstant(
+          'patterns',
+          `ماشین ریاضی: اگر عدد ${currentMachine.input.toLocaleString('fa-IR')} وارد ماشین با قانون «${currentMachine.ruleName}» شود، خروجی چند است؟`,
+          Number(ans).toLocaleString('fa-IR'),
+          currentMachine.correctOutput.toLocaleString('fa-IR'),
+          `ورودی ${currentMachine.input.toLocaleString('fa-IR')} با قانون «${currentMachine.ruleName}» برابر با ${currentMachine.correctOutput.toLocaleString('fa-IR')} می‌شود.`
+        );
+      } else {
+        addMistakeInstant(
+          'patterns',
+          `${currentGeo.title}: ${currentGeo.questionText}`,
+          Number(ans).toLocaleString('fa-IR'),
+          currentGeo.correct.toLocaleString('fa-IR'),
+          `${currentGeo.explanation} (${currentGeo.formulaHint})`
+        );
+      }
       setTimeout(() => {
         setFeedback(null);
         setSelectedAns(null);

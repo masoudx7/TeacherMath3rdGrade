@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CHAPTERS, CHAPTER_LESSONS } from '../data/curriculum';
 import { ChapterInfo, ChapterId, Lesson, QuizQuestion, LessonExample } from '../types';
 import { playSound } from '../utils/sound';
+import { addMistakeInstant } from '../utils/mistakeTracker';
 import { speakPersianText, stopPersianSpeech } from '../utils/speech';
 import { 
   BookOpen, 
@@ -28,6 +29,8 @@ interface CurriculumGuideProps {
   onSelectChapterForQuiz: (chapterId: string) => void;
   onSelectChapterForGame?: (chapterId: ChapterId) => void;
   onAddStars?: (stars: number) => void;
+  onIncrementSolved?: () => void;
+  onRecordChapterAttempt?: (chapterId: ChapterId, score: number, total: number) => void;
   isVip?: boolean;
   onOpenSubscription?: () => void;
 }
@@ -37,6 +40,8 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
   onSelectChapterForQuiz,
   onSelectChapterForGame,
   onAddStars,
+  onIncrementSolved,
+  onRecordChapterAttempt,
   isVip = false,
   onOpenSubscription,
 }) => {
@@ -75,15 +80,27 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
     );
   };
 
-  const handleSelectAnswer = (qId: string, optIdx: number, correctIdx: number) => {
-    setSelectedAnswers(prev => ({ ...prev, [qId]: optIdx }));
-    setShowExplanations(prev => ({ ...prev, [qId]: true }));
+  const handleSelectAnswer = (q: QuizQuestion, optIdx: number) => {
+    setSelectedAnswers(prev => ({ ...prev, [q.id]: optIdx }));
+    setShowExplanations(prev => ({ ...prev, [q.id]: true }));
 
-    if (optIdx === correctIdx) {
+    const chapterId = (selectedLessonChapter?.id || q.chapterId || 'patterns') as ChapterId;
+
+    if (optIdx === q.correctAnswerIndex) {
       playSound('correct', soundEnabled);
       if (onAddStars) onAddStars(1);
+      onIncrementSolved?.();
+      onRecordChapterAttempt?.(chapterId, 1, 1);
     } else {
       playSound('wrong', soundEnabled);
+      onRecordChapterAttempt?.(chapterId, 0, 1);
+      addMistakeInstant(
+        chapterId,
+        q.question,
+        q.options[optIdx] || '',
+        q.options[q.correctAnswerIndex] || '',
+        q.explanation || 'پاسخ نادرست در تمرین درس‌نامه؛ نیاز به مرور مجدد دارد.'
+      );
     }
   };
 
@@ -547,7 +564,7 @@ export const CurriculumGuide: React.FC<CurriculumGuideProps> = ({
                               return (
                                 <button
                                   key={optIdx}
-                                  onClick={() => !isAnswered && handleSelectAnswer(q.id, optIdx, q.correctAnswerIndex)}
+                                  onClick={() => !isAnswered && handleSelectAnswer(q, optIdx)}
                                   disabled={isAnswered}
                                   className={`p-3 rounded-xl border-2 text-xs font-bold text-right transition-all cursor-pointer flex items-center justify-between ${btnStyle}`}
                                 >

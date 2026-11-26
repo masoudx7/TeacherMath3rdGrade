@@ -114,15 +114,32 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
     }
   }, [mistakes]);
 
-  // Sync from server API if user is logged in
+  // Sync from server API if user is logged in (merge without overwriting newer local mistakes)
   useEffect(() => {
-    if (!userId || userId === 'default_user') return;
-    fetch(`/api/user/mistakes?userId=${encodeURIComponent(userId)}`)
-      .then(res => res.json())
+    if (!userId || userId === 'default_user' || userId === 'guest_student') return;
+    fetch(`/api/user/mistakes/${encodeURIComponent(userId)}`)
+      .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (data.mistakes && Array.isArray(data.mistakes) && data.mistakes.length > 0) {
-          setMistakes(data.mistakes);
-        }
+        if (!data || !Array.isArray(data.mistakes) || data.mistakes.length === 0) return;
+        setMistakes(prev => {
+          const existingQuestions = new Set(prev.map(item => item.question));
+          const normalizedRemote: MistakeRecord[] = data.mistakes
+            .filter((rm: any) => rm && rm.question && !existingQuestions.has(rm.question))
+            .map((rm: any) => ({
+              id: String(rm.id || `mstk_srv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+              chapterId: (rm.chapterId as ChapterId) || 'patterns',
+              question: String(rm.question),
+              wrongAnswer: String(rm.wrongAnswer ?? rm.userAnswer ?? ''),
+              correctAnswer: String(rm.correctAnswer ?? ''),
+              explanation: String(rm.explanation || 'پاسخ نادرست ثبت‌شده؛ برای مرور دوباره حل کن.'),
+              timestamp: typeof rm.timestamp === 'number' ? rm.timestamp : Date.parse(rm.timestamp || '') || Date.now(),
+              resolved: Boolean(rm.resolved),
+              attempts: typeof rm.attempts === 'number' ? rm.attempts : 1,
+              retryCount: typeof rm.retryCount === 'number' ? rm.retryCount : 0,
+            }));
+          if (normalizedRemote.length === 0) return prev;
+          return [...prev, ...normalizedRemote];
+        });
       })
       .catch(err => console.warn('Failed to fetch mistakes from server:', err));
   }, [userId]);
@@ -149,13 +166,23 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
     setRetryFeedback(null);
   };
 
+  const normalizeDigits = (val: string) =>
+    val
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .trim()
+      .replace(/\s+/g, '');
+
   const handleSubmitRetry = (m: MistakeRecord) => {
     if (!retryAnswer.trim()) return;
 
-    const normalizedUser = retryAnswer.trim().replace(/\s+/g, '');
-    const normalizedCorrect = m.correctAnswer.trim().replace(/\s+/g, '');
+    const normalizedUser = normalizeDigits(retryAnswer);
+    const normalizedCorrect = normalizeDigits(m.correctAnswer);
 
-    const isCorrect = normalizedUser === normalizedCorrect || normalizedUser.includes(normalizedCorrect) || normalizedCorrect.includes(normalizedUser);
+    const isCorrect =
+      normalizedUser === normalizedCorrect ||
+      (normalizedCorrect.length > 0 && normalizedUser.includes(normalizedCorrect)) ||
+      (normalizedUser.length > 0 && normalizedCorrect.includes(normalizedUser));
 
     if (isCorrect) {
       playSound('correct', soundEnabled);

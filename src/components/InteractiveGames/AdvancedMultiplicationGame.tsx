@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import { Trophy, Flame, CheckCircle2, Zap, Grid, Calculator } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -131,6 +132,31 @@ export const AdvancedMultiplicationGame: React.FC<AdvancedMultiplicationGameProp
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
       setStreak(0);
+      if (mode === 'multiply_zeros') {
+        addMistakeInstant(
+          'advanced_multiplication',
+          `حاصل ضرب ${currentZero.num1.toLocaleString('fa-IR')} × ${currentZero.num2.toLocaleString('fa-IR')} چند است؟`,
+          Number(ans).toLocaleString('fa-IR'),
+          currentZero.correct.toLocaleString('fa-IR'),
+          currentZero.rule
+        );
+      } else if (mode === 'two_by_one') {
+        addMistakeInstant(
+          'advanced_multiplication',
+          `حاصل ضرب ${currentTwo.num1.toLocaleString('fa-IR')} × ${currentTwo.num2.toLocaleString('fa-IR')} چند است؟`,
+          Number(ans).toLocaleString('fa-IR'),
+          currentTwo.correct.toLocaleString('fa-IR'),
+          currentTwo.stepText
+        );
+      } else {
+        addMistakeInstant(
+          'advanced_multiplication',
+          currentEst.text,
+          String(ans),
+          currentEst.correct,
+          currentEst.explanation
+        );
+      }
       setTimeout(() => {
         setFeedback(null);
         setSelectedAns(null);

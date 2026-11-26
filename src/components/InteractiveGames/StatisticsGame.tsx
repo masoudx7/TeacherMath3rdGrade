@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { playSound } from '../../utils/sound';
+import { addMistakeInstant } from '../../utils/mistakeTracker';
 import { Trophy, Flame, CheckCircle2, BarChart2, PieChart, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -165,6 +166,31 @@ export const StatisticsGame: React.FC<StatisticsGameProps> = ({
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
       setStreak(0);
+      if (mode === 'tally') {
+        addMistakeInstant(
+          'statistics',
+          `${currentTally.title} (${currentTally.tallyText}): ${currentTally.question}`,
+          Number(ans).toLocaleString('fa-IR'),
+          currentTally.correct.toLocaleString('fa-IR'),
+          `${currentTally.hint} (پاسخ درست: ${currentTally.correct.toLocaleString('fa-IR')})`
+        );
+      } else if (mode === 'barchart') {
+        addMistakeInstant(
+          'statistics',
+          `${currentChart.title}: ${currentChart.question}`,
+          String(ans),
+          currentChart.correct,
+          currentChart.explanation
+        );
+      } else {
+        addMistakeInstant(
+          'statistics',
+          `${currentProb.title}: ${currentProb.question}`,
+          String(ans),
+          currentProb.correct,
+          currentProb.explanation
+        );
+      }
       setTimeout(() => {
         setFeedback(null);
         setSelectedAns(null);

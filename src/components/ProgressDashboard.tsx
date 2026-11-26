@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChapterId, StudentProfile } from '../types';
-import { BADGES } from '../data/playstationTrophies';
+import { BADGES, BADGE_GROUP_LABELS, TIER_META, Trophy as HonorBadge } from '../data/playstationTrophies';
+import { getTrophyProgress } from '../utils/trophyEngine';
 import { CHAPTERS, AVATARS } from '../data/curriculum';
 import { playSound } from '../utils/sound';
 import confetti from 'canvas-confetti';
@@ -20,7 +21,6 @@ import {
   Legend
 } from 'recharts';
 import { 
-  Trophy, 
   Star, 
   Award, 
   Flame, 
@@ -28,12 +28,20 @@ import {
   TrendingUp, 
   Lock,
   Unlock,
-  CalendarDays
+  CalendarDays,
+  Sparkles,
+  ArrowLeft,
+  X,
+  Pin,
+  PartyPopper,
+  Compass
 } from 'lucide-react';
 
 interface ProgressDashboardProps {
   profile: StudentProfile;
   soundEnabled: boolean;
+  onFeatureBadge?: (badgeId: string) => void;
+  onNavigateToPractice?: (chapterId?: ChapterId) => void;
 }
 
 const CHAPTER_LINE_COLORS: Record<ChapterId, string> = {
@@ -108,10 +116,26 @@ const WeeklyChapterTooltip: React.FC<{
   );
 };
 
-export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, soundEnabled }) => {
+export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
+  profile,
+  soundEnabled,
+  onFeatureBadge,
+  onNavigateToPractice,
+}) => {
   const [activeBadgeCategory, setActiveBadgeCategory] = useState<'all' | 'platinum' | 'gold' | 'silver' | 'bronze'>('all');
+  const [badgeStatusFilter, setBadgeStatusFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
+  const [selectedBadge, setSelectedBadge] = useState<HonorBadge | null>(null);
   const [selectedWeeklyChapter, setSelectedWeeklyChapter] = useState<'all' | ChapterId>('all');
   const avatarObj = AVATARS.find(a => a.id === profile.avatar) || AVATARS[0];
+  const unlockedSet = useMemo(() => new Set(profile.unlockedBadges || []), [profile.unlockedBadges]);
+
+  const featuredBadge = useMemo(() => {
+    if (profile.featuredBadgeId && unlockedSet.has(profile.featuredBadgeId)) {
+      return BADGES.find((b) => b.id === profile.featuredBadgeId) || null;
+    }
+    const unlockedList = BADGES.filter((b) => unlockedSet.has(b.id));
+    return unlockedList.length > 0 ? unlockedList[unlockedList.length - 1] : null;
+  }, [profile.featuredBadgeId, unlockedSet]);
 
   // Radar Data for chapter mastery
   const radarData = CHAPTERS.map(ch => ({
@@ -238,74 +262,88 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
     return CHAPTERS.filter((ch) => ch.id === selectedWeeklyChapter);
   }, [selectedWeeklyChapter]);
 
-  const handleBadgeClick = (badgeTitle: string, isUnlocked: boolean) => {
+  const handleOpenBadge = (badge: HonorBadge, isUnlocked: boolean) => {
+    setSelectedBadge(badge);
     if (isUnlocked) {
       playSound('victory', soundEnabled);
-      confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
+      confetti({ particleCount: 55, spread: 65, origin: { y: 0.6 } });
     } else {
-      playSound('wrong', soundEnabled);
+      playSound('click', soundEnabled);
     }
   };
 
-  const getBadgeProgress = (badge: any) => {
-    let current = 0;
-    let target = 1;
-    let unit = '';
-
-    const { type, threshold } = badge.condition || { type: 'solved', threshold: 10 };
-
-    if (type === 'solved') {
-      current = profile.solvedCount;
-      target = threshold as number;
-      unit = 'مسئله';
-    } else if (type === 'streak') {
-      current = profile.streakDays;
-      target = threshold as number;
-      unit = 'روز پیاپی';
-    } else if (type === 'mastery') {
-      const numThreshold = threshold as number;
-      const masteryVals = Object.values(profile.chapterMastery || {}) as number[];
-      if (numThreshold <= 1) {
-        const maxMastery = Math.max(0, ...masteryVals) * 100;
-        current = Math.round(maxMastery);
-        target = Math.round(numThreshold * 100);
-        unit = '٪ تسلط';
-      } else {
-        const achievedCount = masteryVals.filter(m => m >= 0.8).length;
-        current = achievedCount;
-        target = numThreshold;
-        unit = 'فصل مسلط';
+  const badgeCountsByTier = useMemo(() => {
+    const counts = { bronze: 0, silver: 0, gold: 0, platinum: 0 };
+    BADGES.forEach((b) => {
+      if (unlockedSet.has(b.id)) {
+        counts[b.tier] += 1;
       }
-    } else {
-      current = profile.solvedCount;
-      target = 10;
-      unit = 'مسئله';
-    }
+    });
+    return counts;
+  }, [unlockedSet]);
 
-    const percent = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
-    return { current, target, unit, percent };
-  };
+  const closestLockedBadge = useMemo(() => {
+    let best: { badge: HonorBadge; percent: number; current: number; target: number; unit: string } | null = null;
+    BADGES.forEach((b) => {
+      if (unlockedSet.has(b.id)) return;
+      const prog = getTrophyProgress(b, profile);
+      if (!best || prog.percent > best.percent) {
+        best = { badge: b, ...prog };
+      }
+    });
+    return best;
+  }, [profile, unlockedSet]);
 
-  const filteredBadges = activeBadgeCategory === 'all' 
-    ? BADGES 
-    : BADGES.filter((b: any) => b.tier === activeBadgeCategory);
+  const filteredBadges = useMemo(() => {
+    return BADGES.filter((b) => {
+      if (activeBadgeCategory !== 'all' && b.tier !== activeBadgeCategory) return false;
+      const isUnlocked = unlockedSet.has(b.id);
+      if (badgeStatusFilter === 'unlocked' && !isUnlocked) return false;
+      if (badgeStatusFilter === 'locked' && isUnlocked) return false;
+      return true;
+    }).sort((a, b) => {
+      const aUnlocked = unlockedSet.has(a.id) ? 1 : 0;
+      const bUnlocked = unlockedSet.has(b.id) ? 1 : 0;
+      if (aUnlocked !== bUnlocked) return bUnlocked - aUnlocked;
+      return getTrophyProgress(b, profile).percent - getTrophyProgress(a, profile).percent;
+    });
+  }, [activeBadgeCategory, badgeStatusFilter, unlockedSet, profile]);
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-2 sm:px-4 max-w-6xl mx-auto space-y-6 dir-rtl box-border">
       {/* Student Stats Summary Header */}
       <div className="clay-card p-6 text-[#26354D] flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-[1.75rem] bg-[#FFF3D6] border border-amber-200/80 shadow-[0_8px_20px_-8px_rgba(120,82,40,0.22),inset_0_2px_0_#fff] flex items-center justify-center text-4xl">
-            {avatarObj.icon}
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 rounded-[1.75rem] bg-[#FFF3D6] border border-amber-200/80 shadow-[0_8px_20px_-8px_rgba(120,82,40,0.22),inset_0_2px_0_#fff] flex items-center justify-center text-4xl">
+              {avatarObj.icon}
+            </div>
+            {featuredBadge && (
+              <button
+                type="button"
+                onClick={() => handleOpenBadge(featuredBadge, true)}
+                title={`نشان برگزیده: ${featuredBadge.title}`}
+                className="absolute -bottom-1.5 -left-1.5 w-9 h-9 rounded-2xl bg-[#FFFDF8] border border-amber-300 shadow-md flex items-center justify-center text-lg hover:scale-110 transition-transform cursor-pointer"
+              >
+                {featuredBadge.icon}
+              </button>
+            )}
           </div>
           <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#26354D]">{profile.name}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#26354D]">{profile.name}</h2>
+              {featuredBadge && (
+                <span className="text-xs font-bold text-amber-800">
+                  · {featuredBadge.title}
+                </span>
+              )}
+            </div>
             <p className="text-sm font-medium text-slate-500">دانش‌آموز پایه سوم ابتدایی</p>
-            <div className="flex items-center gap-2 pt-1 flex-wrap">
-              <span className="clay-btn-primary px-3 py-1 rounded-full text-xs font-bold">
+            <div className="flex items-center gap-2 pt-1 text-xs font-bold text-[#26354D] tabular-nums flex-wrap">
+              <span className="clay-btn-primary px-3 py-1 rounded-xl">
                 سطح {profile.level} ریاضی‌دان
               </span>
-              <span className="bg-amber-100/80 text-amber-900 px-3 py-1 rounded-full text-xs font-bold border border-amber-200/70">
+              <span className="text-slate-600 px-1">
                 {profile.solvedCount} مسئله حل‌شده
               </span>
             </div>
@@ -328,7 +366,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
           <div className="clay-inset p-3.5 text-center">
             <Award className="w-6 h-6 text-amber-600 mx-auto" />
             <span className="text-xl font-extrabold block text-[#26354D] mt-1 tabular-nums">{profile.unlockedBadges.length}</span>
-            <span className="text-[11px] text-slate-500 font-bold">مدال افتخار</span>
+            <span className="text-[11px] text-slate-500 font-bold">نشان افتخار</span>
           </div>
         </div>
       </div>
@@ -501,34 +539,103 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
         </div>
       </div>
 
-      {/* Badges & Achievements Section */}
-      <div className="clay-card p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-amber-100/80 pb-4">
-          <div>
-            <h3 className="font-bold text-[#26354D] text-xl flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-amber-500" />
-              <span>کاپ‌ها و مدال‌های افتخار ریاضی</span>
+      {/* Honor Badges Showcase Section (نشان‌های افتخار) */}
+      <div className="clay-card p-5 sm:p-6 space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-amber-100/80 pb-4">
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-[#26354D] text-xl flex items-center gap-2">
+              <Award className="w-6 h-6 text-amber-600 shrink-0" />
+              <span>گنجینه نشان‌های افتخار ریاضی</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">مجموعه کاپ‌ها و دستاوردهای ارزشمند ریاضی پایه سوم دبستان</p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-semibold tabular-nums">
+              <span className="text-[#26354D] font-bold">
+                {profile.unlockedBadges.length} از {BADGES.length} نشان گرفته شده
+              </span>
+              <span aria-hidden="true" className="text-amber-900/30">·</span>
+              <span>برنزی: {badgeCountsByTier.bronze}</span>
+              <span aria-hidden="true" className="text-amber-900/30">·</span>
+              <span>نقره‌ای: {badgeCountsByTier.silver}</span>
+              <span aria-hidden="true" className="text-amber-900/30">·</span>
+              <span>طلایی: {badgeCountsByTier.gold}</span>
+              <span aria-hidden="true" className="text-amber-900/30">·</span>
+              <span>الماس: {badgeCountsByTier.platinum}</span>
+            </div>
           </div>
-          <span className="text-xs font-bold text-amber-900 bg-amber-100/80 border border-amber-200/70 px-4 py-1.5 rounded-full shrink-0 tabular-nums">
-            {profile.unlockedBadges.length} از {BADGES.length} کاپ فتح شده
-          </span>
+
+          {/* Status Segmented Toggle */}
+          <div className="flex items-center gap-1 p-1 clay-inset rounded-2xl shrink-0">
+            {[
+              { id: 'all', label: `همه (${BADGES.length})` },
+              { id: 'unlocked', label: `گرفته‌شده (${profile.unlockedBadges.length})` },
+              { id: 'locked', label: `مانده (${Math.max(0, BADGES.length - profile.unlockedBadges.length)})` },
+            ].map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => {
+                  playSound('click', soundEnabled);
+                  setBadgeStatusFilter(st.id as 'all' | 'unlocked' | 'locked');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 min-h-[34px] tabular-nums ${
+                  badgeStatusFilter === st.id
+                    ? 'clay-btn-primary'
+                    : 'text-slate-600 hover:text-[#26354D]'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Category Filter Tabs */}
+        {/* Closest Next Honor Badge Spotlight */}
+        {closestLockedBadge && (
+          <div className="clay-inset p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-[#FFFDF8] border border-amber-200 flex items-center justify-center text-2xl shrink-0 shadow-xs">
+                {closestLockedBadge.badge.icon}
+              </div>
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
+                  <Compass className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>نزدیک‌ترین نشان به تو</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="tabular-nums">{closestLockedBadge.percent}% انجام شده</span>
+                </div>
+                <p className="text-sm font-extrabold text-[#26354D] truncate">
+                  {closestLockedBadge.badge.title} — {closestLockedBadge.badge.description}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleOpenBadge(closestLockedBadge.badge, false)}
+              className="clay-btn-warm px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer whitespace-nowrap shrink-0 min-h-[38px] flex items-center justify-center gap-1.5"
+            >
+              <span>راهنمای دریافت</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Interactive Tier Filter Controls */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           {[
-            { id: 'all', label: `همه کاپ‌ها (${BADGES.length} عدد)` },
-            { id: 'platinum', label: 'پلاتینیوم (اسطوره‌ای)' },
-            { id: 'gold', label: 'طلا (بسیار سخت)' },
-            { id: 'silver', label: 'نقره (پیشرفته)' },
-            { id: 'bronze', label: 'برنز (مبتدی)' },
+            { id: 'all', label: `همه نشان‌ها (${BADGES.length})` },
+            { id: 'bronze', label: 'نشان‌های برنزی' },
+            { id: 'silver', label: 'نشان‌های نقره‌ای' },
+            { id: 'gold', label: 'نشان‌های طلایی' },
+            { id: 'platinum', label: 'نشان‌های الماس' },
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveBadgeCategory(tab.id as any)}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              type="button"
+              onClick={() => {
+                playSound('click', soundEnabled);
+                setActiveBadgeCategory(tab.id as 'all' | 'platinum' | 'gold' | 'silver' | 'bronze');
+              }}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 min-h-[38px] ${
                 activeBadgeCategory === tab.id
                   ? 'clay-btn-primary'
                   : 'clay-soft text-slate-600 hover:text-[#26354D]'
@@ -539,81 +646,242 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ profile, s
           ))}
         </div>
 
-        {/* Badges Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredBadges.map((badge: any) => {
-            const isUnlocked = profile.unlockedBadges.includes(badge.id);
-            const { current, target, unit, percent } = getBadgeProgress(badge);
+        {/* Interactive Badges Grid */}
+        {filteredBadges.length === 0 ? (
+          <div className="clay-inset p-8 text-center space-y-2">
+            <Award className="w-8 h-8 text-amber-500 mx-auto" />
+            <p className="text-sm font-extrabold text-[#26354D]">
+              در این دسته هنوز نشانی پیدا نشد
+            </p>
+            <p className="text-xs text-slate-500">
+              فیلتر وضعیت را روی «همه» بگذار یا با حل تمرین‌های جدید اولین نشان این بخش را بگیر.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredBadges.map((badge) => {
+              const isUnlocked = unlockedSet.has(badge.id);
+              const { current, target, unit, percent } = getTrophyProgress(badge, profile);
+              const tierMeta = TIER_META[badge.tier];
+              const isFeatured = featuredBadge?.id === badge.id && isUnlocked;
 
-            const tierText = 
-              badge.tier === 'platinum' ? '🏆 پلاتینیوم (۳۰۰ امتیاز)' :
-              badge.tier === 'gold' ? '🥇 طلا (۹۰ امتیاز)' :
-              badge.tier === 'silver' ? '🥈 نقره (۴۵ امتیاز)' : '🥉 برنز (۱۵ امتیاز)';
-
-            const tierBg = 
-              badge.tier === 'platinum' ? 'bg-indigo-100 text-indigo-900 border-indigo-300' :
-              badge.tier === 'gold' ? 'bg-amber-100 text-amber-900 border-amber-300' :
-              badge.tier === 'silver' ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-orange-100 text-orange-900 border-orange-300';
-
-            return (
-              <div
-                key={badge.id}
-                onClick={() => handleBadgeClick(badge.title, isUnlocked)}
-                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden ${
-                  isUnlocked
-                    ? 'bg-gradient-to-br from-[#FFF9E5] to-white border-[#FDCB6E] shadow-sm hover:scale-[1.02]'
-                    : 'bg-slate-50/80 border-slate-200 opacity-90 hover:bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="text-4xl shrink-0 p-2 bg-white rounded-2xl border border-slate-100 shadow-xs">
+              return (
+                <button
+                  key={badge.id}
+                  type="button"
+                  onClick={() => handleOpenBadge(badge, isUnlocked)}
+                  className={`text-right p-4 rounded-2xl border transition-all duration-150 cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                    isUnlocked
+                      ? `${tierMeta.cardTint} shadow-sm hover:-translate-y-0.5`
+                      : 'bg-slate-50/85 border-slate-200/80 hover:bg-white hover:border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-3 w-full">
+                    <div
+                      className={`w-14 h-14 rounded-2xl border flex items-center justify-center text-3xl shrink-0 transition-transform ${
+                        isUnlocked
+                          ? `${tierMeta.emblemBg} shadow-xs`
+                          : 'bg-white border-slate-200 opacity-70 grayscale'
+                      }`}
+                    >
                       {badge.icon}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-[#2D3436]">{badge.title}</h4>
-                      <p className="text-xs text-slate-500 leading-tight mt-1">{badge.description}</p>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 truncate">
+                        <span className={isUnlocked ? tierMeta.accentText : 'text-slate-500'}>
+                          {tierMeta.label}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>{BADGE_GROUP_LABELS[badge.category]}</span>
+                        {isFeatured && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="text-amber-700 font-extrabold">برگزیده</span>
+                          </>
+                        )}
+                      </div>
+                      <h4 className="font-extrabold text-sm text-[#26354D] truncate">{badge.title}</h4>
+                      <p className="text-xs text-slate-600 leading-snug line-clamp-2">{badge.description}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${tierBg}`}>
-                    {tierText}
+
+                  {/* Progress Bar & Interactive Hint Footer */}
+                  <div className="space-y-1.5 pt-2 border-t border-amber-900/10 w-full">
+                    <div className="flex items-center justify-between text-[11px] font-bold tabular-nums">
+                      {isUnlocked ? (
+                        <span className="text-emerald-700 flex items-center gap-1">
+                          <Unlock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>دریافت شده (+{badge.bonusStars} ستاره)</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 flex items-center gap-1">
+                          <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{current} از {target} {unit}</span>
+                        </span>
+                      )}
+                      <span className="text-[#26354D] font-extrabold">
+                        {isUnlocked ? '۱۰۰٪' : `${percent}٪`}
+                      </span>
+                    </div>
+
+                    <div className="w-full h-2.5 bg-slate-200/80 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 rounded-full ${
+                          isUnlocked ? 'bg-emerald-500' : tierMeta.barClass
+                        }`}
+                        style={{ width: `${isUnlocked ? 100 : percent}%` }}
+                      />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Badge Inspector Modal */}
+      {selectedBadge && (() => {
+        const isUnlocked = unlockedSet.has(selectedBadge.id);
+        const prog = getTrophyProgress(selectedBadge, profile);
+        const tierMeta = TIER_META[selectedBadge.tier];
+        const isFeatured = featuredBadge?.id === selectedBadge.id && isUnlocked;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs dir-rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="badge-modal-title"
+          >
+            <div className="clay-card w-full max-w-md p-6 relative space-y-5 animate-scale-up">
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('click', soundEnabled);
+                  setSelectedBadge(null);
+                }}
+                aria-label="بستن جزئیات نشان"
+                className="absolute top-4 left-4 w-9 h-9 rounded-xl clay-soft hover:bg-white flex items-center justify-center text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex flex-col items-center text-center space-y-2.5 pt-2">
+                <div
+                  className={`w-24 h-24 rounded-3xl border-2 flex items-center justify-center text-5xl shadow-sm ${
+                    isUnlocked
+                      ? tierMeta.emblemBg
+                      : 'bg-slate-100 border-slate-200 grayscale opacity-75'
+                  }`}
+                >
+                  {selectedBadge.icon}
+                </div>
+
+                <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                  <span className={tierMeta.accentText}>{tierMeta.label}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{tierMeta.rankTitle}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="tabular-nums">پاداش: +{selectedBadge.bonusStars} ستاره</span>
+                </div>
+
+                <h3 id="badge-modal-title" className="text-xl font-extrabold text-[#26354D]">
+                  {selectedBadge.title}
+                </h3>
+                <p className="text-xs sm:text-sm font-semibold text-slate-600">
+                  {selectedBadge.description}
+                </p>
+              </div>
+
+              {/* Progress Box */}
+              <div className="clay-inset p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold tabular-nums">
+                  <span className={isUnlocked ? 'text-emerald-700' : 'text-[#26354D]'}>
+                    {isUnlocked ? 'این نشان با موفقیت باز شده است' : `پیشرفت فعلی: ${prog.current} از ${prog.target} ${prog.unit}`}
+                  </span>
+                  <span className="font-extrabold text-[#26354D]">
+                    {isUnlocked ? '۱۰۰٪' : `${prog.percent}٪`}
                   </span>
                 </div>
-
-                {/* Progress Bar & Status */}
-                <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-[11px] font-bold">
-                    {isUnlocked ? (
-                      <span className="text-emerald-600 flex items-center gap-1">
-                        <Unlock className="w-3.5 h-3.5 text-emerald-500" />
-                        دریافت شده! 🎉
-                      </span>
-                    ) : (
-                      <span className="text-slate-500 flex items-center gap-1">
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        پیشرفت: {current} از {target} {unit}
-                      </span>
-                    )}
-                    <span className="text-slate-600 font-bold">{percent}%</span>
-                  </div>
-
-                  {/* Visual Bar */}
-                  <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-500 rounded-full ${
-                        isUnlocked 
-                          ? 'bg-emerald-500' 
-                          : 'bg-gradient-to-r from-amber-400 to-orange-500'
-                      }`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
+                <div className="w-full h-3 bg-slate-200/80 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isUnlocked ? 'bg-emerald-500' : tierMeta.barClass
+                    }`}
+                    style={{ width: `${isUnlocked ? 100 : prog.percent}%` }}
+                  />
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+
+              {/* Teacher Guidance or Encouragement */}
+              <div
+                className={`rounded-2xl p-3.5 text-xs sm:text-sm font-semibold leading-relaxed border ${
+                  isUnlocked
+                    ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                    : 'bg-[#FFF9E5] border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-extrabold mb-1">
+                  <Sparkles className={`w-4 h-4 shrink-0 ${isUnlocked ? 'text-emerald-600' : 'text-amber-600'}`} />
+                  <span>{isUnlocked ? 'پیام تبریک استاد دانا' : 'چطور این نشان را بگیرم؟'}</span>
+                </div>
+                <p>{isUnlocked ? selectedBadge.encouragement : selectedBadge.howToEarn}</p>
+              </div>
+
+              {/* Interactive Modal Actions */}
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                {isUnlocked ? (
+                  <>
+                    {onFeatureBadge && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playSound('star', soundEnabled);
+                          onFeatureBadge(selectedBadge.id);
+                        }}
+                        className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px] ${
+                          isFeatured ? 'clay-btn-warm' : 'clay-btn-primary'
+                        }`}
+                      >
+                        <Pin className="w-4 h-4 shrink-0" />
+                        <span>{isFeatured ? 'نشان برگزیده توست' : 'نمایش کنار اسم من'}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSound('fanfare', soundEnabled);
+                        confetti({ particleCount: 80, spread: 75, origin: { y: 0.55 } });
+                      }}
+                      className="flex-1 py-2.5 px-4 rounded-xl clay-soft hover:bg-white text-[#26354D] text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px]"
+                    >
+                      <PartyPopper className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>جشن دوباره!</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSound('click', soundEnabled);
+                      const targetChapter = selectedBadge.chapterId;
+                      setSelectedBadge(null);
+                      onNavigateToPractice?.(
+                        targetChapter || (selectedBadge.category === 'practice' ? 'patterns' : undefined)
+                      );
+                    }}
+                    className="w-full py-3 px-4 rounded-xl clay-btn-primary text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
+                  >
+                    <span>همین الان برای این نشان تمرین کن</span>
+                    <ArrowLeft className="w-4 h-4 shrink-0" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
